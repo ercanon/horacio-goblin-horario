@@ -1,4 +1,3 @@
-require("dotenv").config();
 const {
     Client,
     GatewayIntentBits,
@@ -61,4 +60,4 @@ client.once("ready", () => {
     console.log(`✅ Horacio está, ¡sí sí! ¡Conectado, listo todo!`);
 });
 
-client.login(process.env["TOKEN"]);
+client.login(process.env.TOKEN);
