@@ -2,7 +2,7 @@ const {
     SlashCommandBuilder,
     ChannelType,
     MessageFlags,
-    PermissionFlagsBits,
+    PermissionFlagsBits
 } = require("discord.js");
 
 module.exports = {
@@ -27,13 +27,10 @@ module.exports = {
         const color = interaction.options.getString("color") || "#0099FF";
 
         try {
-            if (
-                interaction.guild.channels.cache.find(
-                    (channel) =>
-                        channel.name === name &&
-                        channel.type === ChannelType.GuildCategory,
-                )
-            ) {
+            if (interaction.guild.channels.cache.find(
+                (channel) =>
+                    channel.name === name && channel.type === ChannelType.GuildCategory
+            )) {
                 await interaction.editReply({
                     content: `⚠️ The folder \`${name}\` already exists.`,
                     flags: [MessageFlags.Ephemeral],
@@ -82,6 +79,14 @@ module.exports = {
 
             const channelList = [
                 {
+                    name: "next-session",
+                    type: ChannelType.GuildAnnouncement,
+                    edit: [
+                        [{ SendMessages: null }, role.id],
+                        [{ SendMessages: true, ViewChannel: true }, process.env.CLIENT_ID],
+                    ],
+                },
+                {
                     name: "gm",
                     type: ChannelType.GuildText,
                     delete: [role.id],
@@ -92,17 +97,6 @@ module.exports = {
                     name: "info-players",
                     type: ChannelType.GuildText,
                     edit: [[{ SendMessages: null }, role.id]],
-                },
-                {
-                    name: "next-session",
-                    type: ChannelType.GuildAnnouncement,
-                    edit: [
-                        [{ SendMessages: null }, role.id],
-                        [
-                            { SendMessages: true, ViewChannel: true },
-                            process.env["CLIENT_ID"],
-                        ],
-                    ],
                 },
                 { name: "General", type: ChannelType.GuildVoice },
                 {
@@ -133,7 +127,9 @@ module.exports = {
                     }
                 }
             }
-        } catch (error) {
+            console.log("📂 ¡Nueva categoría! Horacio no firmó para esto, no descansa...");
+        }
+        catch (error) {
             console.error("Error creating the folder:", error);
             await interaction.editReply({
                 content: "❌ ¡Horacio intenta, categoría no aparece! Magia mala, sí sí.",
