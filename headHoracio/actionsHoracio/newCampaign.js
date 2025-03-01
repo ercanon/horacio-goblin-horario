@@ -126,7 +126,7 @@ module.exports = {
                     }
                 }
                 if (channelData.name === "next-session") {
-                    setSchedule(name, channel.id).then(async (sheetID) => {
+                    setSchedule(name, color, channel.id).then(async (sheetID) => {
                         const msg = await channel.send(`📆  [**Horario de sesiones**](<https://docs.google.com/spreadsheets/d/149bvpWOX1h7Dk_agutMBA_1-oGRF4cV9vR_kTdr8kug/#gid=${sheetID}>)  📆`);
                         await msg.pin();
                     });

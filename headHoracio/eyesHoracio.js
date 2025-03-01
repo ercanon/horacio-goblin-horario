@@ -1,9 +1,9 @@
 const axios = require("axios");
 
 module.exports = {
-    async setSchedule(sheetName, channelID) {
+    async setSchedule(sheetName, tabColor, channelID) {
         try {
-            const response = await axios.post(process.env.GAS_URL, { sheetName, channelID });
+            const response = await axios.post(process.env.GAS_URL, { sheetName, tabColor, channelID });
     
             if (response.data.success)
                 return response.data.sheetId;

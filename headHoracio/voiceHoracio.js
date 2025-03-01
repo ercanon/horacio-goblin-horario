@@ -20,7 +20,7 @@ module.exports = (client) => {
                 .then((messages) =>
                     messages.first());
             await data.channel.send({
-                constent: `${data.role} ${msgHoracio.emptySchedule[Math.floor(Math.random() * 20)]}\n${firstMsg}`,
+                constent: `${data.role} ${msgHoracio.emptySchedule[Math.floor(Math.random() * msgHoracio.emptySchedule.length)]}\n${firstMsg}`,
                 reply: {
                     messageReference: firstMsg.id,
                     failIfNotExists: false
@@ -34,14 +34,34 @@ module.exports = (client) => {
     app.post("/notifySession", async (req, res) => {
         const data = await getRoleChannel(req.body);
         if (data) {
-            const datesDisp = req.body.datesDisp;
-            if (datesDisp?.length === 1)
-                await data.channel.send(`@${data.role} #${req.body.sessionNum} Sesión: ${datesDisp[0]}`);
-            else if (datesDisp?.length > 1) {
-                await data.channel.send({
+            const dispDates = req.body.dispDates;
+            if (dispDates?.length === 1)
+                await data.channel.send(`@${data.role} #${req.body.sessionNum} Sesión: ${dispDates[0]}`);
+            else if (dispDates?.length > 1) {
+                const mentionMsg = await data.channel.send(`@${data.role}`);
+                const pollMsg = await data.channel.send({
                     poll: {
-                        question: "",
+                        question: { text: msgHoracio.pollQuestion[Math.floor(Math.random() * msgHoracio.pollQuestion.length)] },
+                        answers: dispDates.map((date) =>
+                            ({ text: date })),
+                        allowMultiselect: true,
+                        duration: Math.min(
+                            1, //TODO: Testing, delete
+                            4 * 24,
+                            (req.body.msNextSession - Date.now()) / 60 * 60 * 1000 // ms each h
+                        )
                     },
+                });
+
+                client.on("messageUpdate", async (oldMessage, newMessage) => {
+                    if (newMessage.id == pollMsg.id && newMessage.poll?.resultsFinalized) {
+                        const winningOption = newMessage.poll.answers.reduce((prev, current) =>
+                            (prev.votes > current.votes) ? prev : current);
+                        mentionMsg.delete();
+                        pollMsg.delete();
+                        console.log("🙉🙊🙈  " + winningOption);
+                        await data.channel.send(`@${data.role} #${req.body.sessionNum} Sesión: ${winningOption}`);
+                    }
                 });
             }
             return res.status(200).send("¡Horacio notificó sesión!");
