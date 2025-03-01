@@ -8,6 +8,7 @@
   },
   "author": "@ercanon",
   "dependencies": {
+    "axios": "^1.8.1",
     "discord.js": "^14.18.0",
     "express": "^4.21.2"
   },

@@ -4,46 +4,45 @@ const {
     MessageFlags,
     PermissionFlagsBits
 } = require("discord.js");
+const { setSchedule } = require("../eyesHoracio.js")
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName("new_campaign")
+        .setName("new_campaign") //Does not admit Caps
         .setDescription("Create a new RPG category in the server")
         .addStringOption((option) =>
             option
                 .setName("name")
                 .setDescription("Name of the Campaign")
-                .setRequired(true),
+                .setRequired(true)
         )
         .addStringOption((option) =>
             option
                 .setName("color")
-                .setDescription("Color of the role (Hex format, e.g. #FF5733)")
-                .setRequired(false),
+                .setDescription("Color of the role (e.g. #FF5733)")
+                .setRequired(false)
         ),
     async execute(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const name = interaction.options.getString("name");
         const color = interaction.options.getString("color") || "#0099FF";
+        const channelInteract = interaction.guild.channels;
 
         try {
-            if (interaction.guild.channels.cache.find(
-                (channel) =>
-                    channel.name === name && channel.type === ChannelType.GuildCategory
-            )) {
-                await interaction.editReply({
-                    content: `⚠️ The folder \`${name}\` already exists.`,
+            if (channelInteract.cache.find((category) =>
+                category.name === name && category.type === ChannelType.GuildCategory)) {
+                return await interaction.editReply({
+                    content: `⚠️ ¡No hacer lío! ${name} ya está ahí, no repetir.`,
                     flags: [MessageFlags.Ephemeral],
                 });
             }
 
             const role = await interaction.guild.roles.create({
                 name,
-                color,
-                reason: `Role created for the new campaign: ${name}`,
+                color
             });
 
-            const category = await interaction.guild.channels.create({
+            const category = await channelInteract.create({
                 name,
                 type: ChannelType.GuildCategory,
                 permissionOverwrites: [
@@ -107,7 +106,7 @@ module.exports = {
             ];
 
             for (const channelData of channelList) {
-                const channel = await interaction.guild.channels.create({
+                const channel = await channelInteract.create({
                     name: channelData.name,
                     type: channelData.type,
                     parent: category.id,
@@ -126,15 +125,23 @@ module.exports = {
                         await channel.permissionOverwrites.delete(id);
                     }
                 }
+                if (channelData.name === "next-session") {
+                    setSchedule(name, channel.id).then(async (sheetID) => {
+                        const msg = await channel.send(`📆  [**Horario de sesiones**](<https://docs.google.com/spreadsheets/d/149bvpWOX1h7Dk_agutMBA_1-oGRF4cV9vR_kTdr8kug/#gid=${sheetID}>)  📆`);
+                        await msg.pin();
+                    });
+                }
             }
-            console.log("📂 ¡Nueva categoría! Horacio no firmó para esto, no descansa...");
-        }
-        catch (error) {
-            console.error("Error creating the folder:", error);
             await interaction.editReply({
-                content: "❌ ¡Horacio intenta, categoría no aparece! Magia mala, sí sí.",
+                content: "📂 ¡Nueva categoría! Horacio no firmó para esto, no descansa...",
                 flags: [MessageFlags.Ephemeral],
             });
         }
-    },
+        catch (error) {
+            await interaction.editReply({
+                content: `❌ ¡Horacio intenta, categoría no aparece! Magia mala, sí sí. ${error}`,
+                flags: [MessageFlags.Ephemeral],
+            });
+        }
+    }
 };

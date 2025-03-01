@@ -36,8 +36,7 @@ const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 client.on("interactionCreate", async (interaction) => {
     if (!interaction.isCommand())
         return;
-
-    console.log("Comando recibido: ", interaction.commandName);
+    console.log("¡Entiendo Comando, Horacio hace! ", interaction.commandName);
 
     const cmd = client.commands.get(interaction.commandName);
     if (!cmd)
