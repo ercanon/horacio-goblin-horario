@@ -3,6 +3,8 @@ module.exports = (client) => {
     const express = require("express");
     const app = express();
 
+    const channelData = new Map();
+
     app.use(express.json());
     app.listen(3000, () =>
         console.log("🌍 ¡Horacio ahora atrapa datos! Horacio atento."),
@@ -36,37 +38,58 @@ module.exports = (client) => {
         if (data) {
             const dispDates = req.body.dispDates;
             if (dispDates?.length === 1)
-                await data.channel.send(`@${data.role} #${req.body.sessionNum} Sesión: ${dispDates[0]}`);
+                await data.channel.send(`${data.role} #${req.body.sessionNum} Sesión: ${dispDates[0]}`);
             else if (dispDates?.length > 1) {
-                const mentionMsg = await data.channel.send(`@${data.role}`);
-                const pollMsg = await data.channel.send({
-                    poll: {
-                        question: { text: msgHoracio.pollQuestion[Math.floor(Math.random() * msgHoracio.pollQuestion.length)] },
-                        answers: dispDates.map((date) =>
-                            ({ text: date })),
-                        allowMultiselect: true,
-                        duration: Math.min(
-                            1, //TODO: Testing, delete
-                            4 * 24,
-                            (req.body.msNextSession - Date.now()) / 60 * 60 * 1000 // ms each h
-                        )
-                    },
-                });
+                try {
+                    const rmngTime = req.body.msNextSession;
 
-                client.on("messageUpdate", async (oldMessage, newMessage) => {
-                    if (newMessage.id == pollMsg.id && newMessage.poll?.resultsFinalized) {
-                        const winningOption = newMessage.poll.answers.reduce((prev, current) =>
+                    await data.channel.send(`${data.role}`);
+                    const msgPoll = await data.channel.send({
+                        poll: {
+                            question: { text: msgHoracio.pollQuestion[Math.floor(Math.random() * msgHoracio.pollQuestion.length)] },
+                            answers: dispDates.map((date) =>
+                                ({ text: date })),
+                            allowMultiselect: true,
+                            duration: Math.min(
+                                1, //TODO: Testing, delete
+                                4 * 24,
+                                (rmngTime - Date.now()) / (60 * 60 * 1000) // ms each h
+                            )
+                        }
+                    })
+
+                    const intervalId = setInterval(async () => {
+                        if (!msgPoll.poll?.resultsFinalized)
+                            return console.warn("⚠️ ¡Aguanta! Poll no terminó... Horacio probará en un minuto.")
+
+                        const winningOption = msgPoll.poll.answers.reduce((prev, current) =>
                             (prev.votes > current.votes) ? prev : current);
-                        mentionMsg.delete();
-                        pollMsg.delete();
-                        console.log("🙉🙊🙈  " + winningOption);
-                        await data.channel.send(`@${data.role} #${req.body.sessionNum} Sesión: ${winningOption}`);
-                    }
-                });
+                        await msgPoll.channel.send(`${data.role} #${req.body.sessionNum} Sesión: ${winningOption.text}`);
+
+                        clearInterval(intervalId);
+                    }, 12 * 60 * 60 * 1000);
+                }
+                catch (error) {
+                    console.error("❌ Horacio intentó, pero encuesta dijo 'no'.", error);
+                }
             }
             return res.status(200).send("¡Horacio notificó sesión!");
         }
         return res.status(400).send("¡Horacio no notificó sesión! Faltan ingredientes.");
+    });
+
+    const msgPattern = /^@\S+ #\d+ Sesión: .+$/;
+    client.on("messageCreate", async (message) => {
+        if (message.channel.permissionsFor(client.user.id) && msgPattern.test(message.content)) {
+            const messages = await message.channel.messages.fetch({ limit: 15 });
+            messages.forEach(async (msg) => {
+                if (!msgPattern.test(msg.content) && msg.deletable) {
+                    msg.delete().catch((error) => 
+                        console.error("❌ ¡Bah! Mensaje terco, no se deja borrar. ¿Magia oscura?", error));
+                }
+            });
+
+        }
     });
 
     async function getRoleChannel(data) {

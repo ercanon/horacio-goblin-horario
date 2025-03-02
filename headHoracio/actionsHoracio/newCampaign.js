@@ -29,6 +29,11 @@ module.exports = {
         const channelInteract = interaction.guild.channels;
 
         try {
+            if (!interaction.channel.permissionsFor(client.user.id))
+                return await interaction.editReply({
+                    content: `⚠️ ¡Puerta cerrada! Horacio no puede entrar aquí… ¿maldición o mala suerte?`,
+                    flags: [MessageFlags.Ephemeral],
+                });
             if (channelInteract.cache.find((category) =>
                 category.name === name && category.type === ChannelType.GuildCategory)) {
                 return await interaction.editReply({
