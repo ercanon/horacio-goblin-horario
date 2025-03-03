@@ -3,8 +3,6 @@ module.exports = (client) => {
     const express = require("express");
     const app = express();
 
-    const channelData = new Map();
-
     app.use(express.json());
     app.listen(3000, () =>
         console.log("🌍 ¡Horacio ahora atrapa datos! Horacio atento."),
@@ -37,14 +35,14 @@ module.exports = (client) => {
         const data = await getRoleChannel(req.body);
         if (data) {
             const dispDates = req.body.dispDates;
-            if (dispDates?.length === 1)
-                await data.channel.send(`${data.role} #${req.body.sessionNum} Sesión: ${dispDates[0]}`);
+            const msNextSession = req.body.msNextSession - Date.now();
+            const msgResult = `${data.role} #${req.body.sessionNum} Sesión: `;
+            if (dispDates?.length === 1 || msNextSession <= 48 * 60 * 60 * 1000)
+                await data.channel.send(msgResult + dispDates[0]);
             else if (dispDates?.length > 1) {
                 try {
-                    const rmngTime = req.body.msNextSession;
-
-                    await data.channel.send(`${data.role}`);
                     const msgPoll = await data.channel.send({
+                        content: data.role,
                         poll: {
                             question: { text: msgHoracio.pollQuestion[Math.floor(Math.random() * msgHoracio.pollQuestion.length)] },
                             answers: dispDates.map((date) =>
@@ -52,22 +50,27 @@ module.exports = (client) => {
                             allowMultiselect: true,
                             duration: Math.min(
                                 1, //TODO: Testing, delete
-                                4 * 24,
-                                (rmngTime - Date.now()) / (60 * 60 * 1000) // ms each h
+                                5 * 24,
+                                msNextSession / (60 * 60 * 1000) // ms each h
                             )
                         }
-                    })
+                    });
 
-                    const intervalId = setInterval(async () => {
-                        if (!msgPoll.poll?.resultsFinalized)
-                            return console.warn("⚠️ ¡Aguanta! Poll no terminó... Horacio probará en un minuto.")
+                    msgPoll.poll = new Proxy(msgPoll.poll, {
+                        set(target, prop, value) {
+                            if (prop === "resultsFinalized" && value === true) {
+                                console.log("📌 Detectado cambio en resultsFinalized!");
 
-                        const winningOption = msgPoll.poll.answers.reduce((prev, current) =>
-                            (prev.votes > current.votes) ? prev : current);
-                        await msgPoll.channel.send(`${data.role} #${req.body.sessionNum} Sesión: ${winningOption.text}`);
-
-                        clearInterval(intervalId);
-                    }, 12 * 60 * 60 * 1000);
+                                const winningOption = target.answers.reduce((prev, current) =>
+                                    (prev.votes > current.votes) ? prev : current);
+                                
+                                target.channel.send(msgResult + winningOption.text);
+                            }
+                            console.log("prop: " + prop + ", value: " + value)
+                            target[prop] = value;
+                            return true;
+                        }
+                    });
                 }
                 catch (error) {
                     console.error("❌ Horacio intentó, pero encuesta dijo 'no'.", error);
