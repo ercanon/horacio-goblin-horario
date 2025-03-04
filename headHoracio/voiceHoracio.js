@@ -57,7 +57,7 @@ module.exports = (client) => {
                     });
 
                     msgPoll.poll = new Proxy(msgPoll.poll, {
-                        set(target, prop, value) {
+                        set: function (target, prop, value) {
                             if (prop === "resultsFinalized" && value === true) {
                                 console.log("📌 Detectado cambio en resultsFinalized!");
 
