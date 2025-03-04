@@ -2,7 +2,9 @@ const {
     SlashCommandBuilder,
     ChannelType,
     MessageFlags,
-    PermissionFlagsBits
+    PermissionFlagsBits,
+    GuildScheduledEventEntityType,
+    GuildScheduledEventRecurrenceRuleFrequency
 } = require("discord.js");
 const { setSchedule } = require("../eyesHoracio.js")
 
@@ -21,19 +23,25 @@ module.exports = {
                 .setName("color")
                 .setDescription("Color of the role (e.g. #FF5733)")
                 .setRequired(false)
+        ).addAttachmentOption(option =>
+            option
+                .setName("image")
+                .setDescription("Scheduled Event banner image")
+                .setRequired(false)
         ),
     async execute(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const name = interaction.options.getString("name");
+        const name = interaction.options.getString("name").toLowerCase();
         const color = interaction.options.getString("color") || "#0099FF";
         const channelInteract = interaction.guild.channels;
 
         try {
-            if (!interaction.channel.permissionsFor(client.user.id))
+            if (!interaction.channel.permissionsFor(process.env.CLIENT_ID).has(PermissionFlagsBits.SendMessages)) {
                 return await interaction.editReply({
                     content: `⚠️ ¡Puerta cerrada! Horacio no puede entrar aquí… ¿maldición o mala suerte?`,
                     flags: [MessageFlags.Ephemeral],
                 });
+            }
             if (channelInteract.cache.find((category) =>
                 category.name === name && category.type === ChannelType.GuildCategory)) {
                 return await interaction.editReply({
@@ -130,6 +138,7 @@ module.exports = {
                         await channel.permissionOverwrites.delete(id);
                     }
                 }
+
                 if (channelData.name === "next-session") {
                     setSchedule(name, color, channel.id).then(async (sheetID) => {
                         const msg = await channel.send(`📆  [**Horario de sesiones**](<https://docs.google.com/spreadsheets/d/149bvpWOX1h7Dk_agutMBA_1-oGRF4cV9vR_kTdr8kug/#gid=${sheetID}>)  📆`);
@@ -137,6 +146,21 @@ module.exports = {
                     });
                 }
             }
+
+            await interaction.guild.scheduledEvents.create({
+                name: "#0 Session",
+                scheduledStartTime: new Date(Date.now() + 360 * 24 * 60 * 60 * 1000),
+                scheduledEndTime: new Date(Date.now() + 361 * 24 * 60 * 60 * 1000),
+                privacyLevel: 2,
+                entityType: GuildScheduledEventEntityType.External,
+                entityMetadata: { location: name },
+                recurrenceRule: {
+                    frequency: GuildScheduledEventRecurrenceRuleFrequency.yearly,
+                    interval: 1
+                },
+                image: interaction.options.getAttachment("image")?.url || null
+            });
+
             await interaction.editReply({
                 content: "📂 ¡Nueva categoría! Horacio no firmó para esto, no descansa...",
                 flags: [MessageFlags.Ephemeral],

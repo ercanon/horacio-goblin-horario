@@ -1,4 +1,5 @@
 module.exports = (client) => {
+    const { PermissionFlagsBits } = require("discord.js");
     const msgHoracio = require("./phrasesHoracio.json");
     const express = require("express");
     const app = express();
@@ -35,42 +36,28 @@ module.exports = (client) => {
         const data = await getRoleChannel(req.body);
         if (data) {
             const dispDates = req.body.dispDates;
-            const msNextSession = req.body.msNextSession - Date.now();
-            const msgResult = `${data.role} #${req.body.sessionNum} Sesión: `;
-            if (dispDates?.length === 1 || msNextSession <= 48 * 60 * 60 * 1000)
+            const [msStartSession, msEndSession] = req.body.msNextSession.map((time) =>
+                parseInt(time) - Date.now());
+            const msgResult = `${data.role} #${req.body.sessionNum} Session: `;
+            if (dispDates?.length === 1 || msStartSession <= 4 * 24 * 60 * 60 * 1000)
                 await data.channel.send(msgResult + dispDates[0]);
             else if (dispDates?.length > 1) {
                 try {
                     const msgPoll = await data.channel.send({
-                        content: data.role,
+                        content: `${data.role}`,
                         poll: {
                             question: { text: msgHoracio.pollQuestion[Math.floor(Math.random() * msgHoracio.pollQuestion.length)] },
                             answers: dispDates.map((date) =>
                                 ({ text: date })),
                             allowMultiselect: true,
                             duration: Math.min(
-                                1, //TODO: Testing, delete
+                                1, //TODO Delete
                                 5 * 24,
-                                msNextSession / (60 * 60 * 1000) // ms each h
+                                msStartSession / (60 * 60 * 1000) // ms each h
                             )
                         }
                     });
-
-                    msgPoll.poll = new Proxy(msgPoll.poll, {
-                        set: function (target, prop, value) {
-                            if (prop === "resultsFinalized" && value === true) {
-                                console.log("📌 Detectado cambio en resultsFinalized!");
-
-                                const winningOption = target.answers.reduce((prev, current) =>
-                                    (prev.votes > current.votes) ? prev : current);
-                                
-                                target.channel.send(msgResult + winningOption.text);
-                            }
-                            console.log("prop: " + prop + ", value: " + value)
-                            target[prop] = value;
-                            return true;
-                        }
-                    });
+                    pollFinishTimeout(msStartSession + 60 * 1000, msgResult, msgPoll.poll);
                 }
                 catch (error) {
                     console.error("❌ Horacio intentó, pero encuesta dijo 'no'.", error);
@@ -81,19 +68,33 @@ module.exports = (client) => {
         return res.status(400).send("¡Horacio no notificó sesión! Faltan ingredientes.");
     });
 
-    const msgPattern = /^<@!?&?\d+> #\d+ Sesión: .+$/;
+    const msgPattern = /^<@!?&?\d+> #\d+ Session: .+$/;
     client.on("messageCreate", async (message) => {
-        if (message.channel.permissionsFor(client.user.id) && msgPattern.test(message.content)) {
-            console.warn("clean text");
-            await message.channel.messages.fetch({ limit: 5 }).forEach(async (msg) => {
-                if (!msgPattern.test(msg.content) && !msg.pinned && msg.deletable) {
-                    msg.delete().catch((error) => 
-                        console.error("❌ ¡Bah! Mensaje terco, no se deja borrar. ¿Magia oscura?", error));
-                }
-            });
-
+        if (message.channel.permissionsFor(process.env.CLIENT_ID).has(PermissionFlagsBits.SendMessages) && msgPattern.test(message.content)) {
+            console.warn("⚠️ ¡Puf! Mensajes desaparecidos, como magia (o garra de Horacio).");
+            message.channel.messages.fetch({ limit: 5 }).then((lastMsgs) =>
+                lastMsgs.forEach(async (msg) => {
+                    if (!msgPattern.test(msg.content) && !msg.pinned && msg.deletable) {
+                        msg.delete().catch((error) =>
+                            console.error("❌ ¡Bah! Mensaje terco, no se deja borrar. ¿Magia oscura?", error));
+                    }
+                })
+            );
         }
     });
+
+    function pollFinishTimeout(timeout, message, poll) {
+        setTimeout(() => {
+            const { resultsFinalized, answers } = poll;
+            if (!resultsFinalized)
+                return pollFinishTimeout(60 * 1000, message, poll) //1 min
+
+            const winningOption = answers.reduce((prev, current) =>
+                (prev.votes > current.votes) ? prev : current);
+
+            target.channel.send(message + winningOption.text);
+        }, timeout);
+    }
 
     async function getRoleChannel(data) {
         if (data) {
