@@ -81,12 +81,12 @@ module.exports = (client) => {
         return res.status(400).send("¡Horacio no notificó sesión! Faltan ingredientes.");
     });
 
-    const msgPattern = /^@\S+ #\d+ Sesión: .+$/;
+    const msgPattern = /^<@!?&?\d+> #\d+ Sesión: .+$/;
     client.on("messageCreate", async (message) => {
         if (message.channel.permissionsFor(client.user.id) && msgPattern.test(message.content)) {
-            const messages = await message.channel.messages.fetch({ limit: 15 });
-            messages.forEach(async (msg) => {
-                if (!msgPattern.test(msg.content) && msg.deletable) {
+            console.warn("clean text");
+            await message.channel.messages.fetch({ limit: 5 }).forEach(async (msg) => {
+                if (!msgPattern.test(msg.content) && !msg.pinned && msg.deletable) {
                     msg.delete().catch((error) => 
                         console.error("❌ ¡Bah! Mensaje terco, no se deja borrar. ¿Magia oscura?", error));
                 }
