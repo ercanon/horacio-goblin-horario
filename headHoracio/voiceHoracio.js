@@ -1,4 +1,4 @@
-5module.exports = (client) => {
+module.exports = (client) => {
     const { PermissionFlagsBits } = require("discord.js");
     const msgHoracio = require("./phrasesHoracio.json");
     const express = require("express");

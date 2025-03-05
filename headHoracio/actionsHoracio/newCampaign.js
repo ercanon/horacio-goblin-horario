@@ -149,8 +149,8 @@ module.exports = {
 
             await interaction.guild.scheduledEvents.create({
                 name: "#0 Session",
-                scheduledStartTime: new Date(Date.now() + 360 * 24 * 60 * 60 * 1000),
-                scheduledEndTime: new Date(Date.now() + 361 * 24 * 60 * 60 * 1000),
+                scheduledStartTime: Date.now() + 365 * 24 * 60 * 60 * 1000,
+                scheduledEndTime: Date.now() + 366 * 24 * 60 * 60 * 1000,
                 privacyLevel: 2,
                 entityType: GuildScheduledEventEntityType.External,
                 entityMetadata: { location: name },
