@@ -1,4 +1,4 @@
-module.exports = (client) => {
+5module.exports = (client) => {
     const { PermissionFlagsBits } = require("discord.js");
     const msgHoracio = require("./phrasesHoracio.json");
     const express = require("express");
@@ -86,6 +86,7 @@ module.exports = (client) => {
 
     function pollFinishTimeout(timeout, message, poll) {
         setTimeout(() => {
+            console.log("test");
             const { resultsFinalized, answers } = poll;
             if (!resultsFinalized)
                 return pollFinishTimeout(60 * 1000, message, poll) //1 min
