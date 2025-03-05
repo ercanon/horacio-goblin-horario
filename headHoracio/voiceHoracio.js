@@ -37,7 +37,12 @@ module.exports = (client) => {
         if (data) {
             const dispDates = req.body.dispDates;
             const [msStartSession, msEndSession] = req.body.msNextSession.map((time) =>
-                parseInt(time) - Date.now());
+                time - Date.now());
+            const duration = Math.min(
+                1, //TODO Delete
+                5 * 24,
+                msStartSession / (60 * 60 * 1000) // ms each h
+            );
             const msgResult = `${data.role} #${req.body.sessionNum} Session: `;
             if (dispDates?.length === 1 || msStartSession <= 4 * 24 * 60 * 60 * 1000)
                 await data.channel.send(msgResult + dispDates[0]);
@@ -50,14 +55,10 @@ module.exports = (client) => {
                             answers: dispDates.map((date) =>
                                 ({ text: date })),
                             allowMultiselect: true,
-                            duration: Math.min(
-                                1, //TODO Delete
-                                5 * 24,
-                                msStartSession / (60 * 60 * 1000) // ms each h
-                            )
+                            duration
                         }
                     });
-                    pollFinishTimeout(msStartSession + 60 * 1000, msgResult, msgPoll.poll);
+                    pollFinishTimeout(duration + 60 * 1000, msgResult, msgPoll.poll);
                 }
                 catch (error) {
                     console.error("❌ Horacio intentó, pero encuesta dijo 'no'.", error);
