@@ -86,6 +86,12 @@ module.exports = {
                             PermissionFlagsBits.Speak,
                         ],
                     },
+                    {
+                        id: process.env.CLIENT_ID,
+                        allow: [
+                            PermissionFlagsBits.ViewChannel
+                        ],
+                    }
                 ],
             });
 
@@ -93,24 +99,31 @@ module.exports = {
                 {
                     name: "next-session",
                     type: ChannelType.GuildAnnouncement,
-                    edit: [
-                        [{ SendMessages: null }, role.id],
-                        [{ SendMessages: true, ViewChannel: true }, process.env.CLIENT_ID],
-                    ],
+                    edit: [[{ SendMessages: null }, role.id], [{ SendMessages: true }, process.env.CLIENT_ID] ]
                 },
                 {
                     name: "gm",
                     type: ChannelType.GuildText,
                     delete: [role.id],
+                    edit: [[{ SendMessages: true }, process.env.CLIENT_ID]]
                 },
-                { name: "general", type: ChannelType.GuildText },
-                { name: "memes", type: ChannelType.GuildText },
+                {
+                    name: "general",
+                    type: ChannelType.GuildText
+                },
+                {
+                    name: "memes",
+                    type: ChannelType.GuildText
+                },
                 {
                     name: "info-players",
                     type: ChannelType.GuildText,
-                    edit: [[{ SendMessages: null }, role.id]],
+                    edit: [[{ SendMessages: null }, role.id]]
                 },
-                { name: "General", type: ChannelType.GuildVoice },
+                {
+                    name: "General",
+                    type: ChannelType.GuildVoice
+                },
                 {
                     name: "Private",
                     type: ChannelType.GuildVoice,
@@ -125,6 +138,12 @@ module.exports = {
                     parent: category.id,
                 });
 
+                if (channelData.name === "next-session") {
+                    const newSchedule = await setSchedule(name, color, channel.id)
+                    const msg = await channel.send(`📆  [**Horario de sesiones**](<https://docs.google.com/spreadsheets/d/149bvpWOX1h7Dk_agutMBA_1-oGRF4cV9vR_kTdr8kug/#gid=${newSchedule}>)  📆`);
+                    await msg.pin();
+                }
+
                 if (channelData.edit) {
                     for (const [id, permissions] of channelData.edit) {
                         await channel.permissionOverwrites.edit(
@@ -138,25 +157,20 @@ module.exports = {
                         await channel.permissionOverwrites.delete(id);
                     }
                 }
-
-                if (channelData.name === "next-session") {
-                    setSchedule(name, color, channel.id).then(async (sheetID) => {
-                        const msg = await channel.send(`📆  [**Horario de sesiones**](<https://docs.google.com/spreadsheets/d/149bvpWOX1h7Dk_agutMBA_1-oGRF4cV9vR_kTdr8kug/#gid=${sheetID}>)  📆`);
-                        await msg.pin();
-                    });
-                }
             }
 
+            const msDay = Date.now() + 365 * 24 * 60 * 60 * 1000;
             await interaction.guild.scheduledEvents.create({
                 name: "#0 Session",
-                scheduledStartTime: Date.now() + 365 * 24 * 60 * 60 * 1000,
-                scheduledEndTime: Date.now() + 366 * 24 * 60 * 60 * 1000,
+                scheduledStartTime: msDay,
+                scheduledEndTime: msDay + 60 * 60 * 1000,
                 privacyLevel: 2,
                 entityType: GuildScheduledEventEntityType.External,
                 entityMetadata: { location: name },
                 recurrenceRule: {
-                    frequency: GuildScheduledEventRecurrenceRuleFrequency.yearly,
-                    interval: 1
+                    startAt: msDay,
+                    frequency: GuildScheduledEventRecurrenceRuleFrequency.Yearly,
+                    interval: 1,
                 },
                 image: interaction.options.getAttachment("image")?.url || null
             });
