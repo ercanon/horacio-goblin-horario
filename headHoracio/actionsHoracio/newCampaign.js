@@ -31,7 +31,7 @@ module.exports = {
         ),
     async execute(interaction) {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-        const name = interaction.options.getString("name").toLowerCase();
+        const name = interaction.options.getString("name");
         const color = interaction.options.getString("color") || "#0099FF";
         const channelInteract = interaction.guild.channels;
 
@@ -43,7 +43,7 @@ module.exports = {
                 });
             }
             if (channelInteract.cache.find((category) =>
-                category.name === name && category.type === ChannelType.GuildCategory)) {
+                category.type === ChannelType.GuildCategory && category.name.toLowerCase() === name.toLowerCase())) {
                 return await interaction.editReply({
                     content: `⚠️ ¡No hacer lío! ${name} ya está ahí, no repetir.`,
                     flags: [MessageFlags.Ephemeral],
@@ -54,20 +54,22 @@ module.exports = {
                 name,
                 color
             });
+            console.log("📝 ¡Eh! Rol asignado, ahora eres alguien… ¡o algo!")
 
             const category = await channelInteract.create({
                 name,
                 type: ChannelType.GuildCategory,
                 permissionOverwrites: [
                     {
-                        id: interaction.guild.id,
-                        deny: [
+                        id: interaction.user.id,
+                        allow: [
                             PermissionFlagsBits.ViewChannel,
                             PermissionFlagsBits.SendMessages,
                             PermissionFlagsBits.Connect,
                             PermissionFlagsBits.Speak,
                         ],
                     },
+                    { id: process.env.CLIENT_ID },
                     {
                         id: role.id,
                         allow: [
@@ -78,34 +80,29 @@ module.exports = {
                         ],
                     },
                     {
-                        id: interaction.user.id,
-                        allow: [
+                        id: interaction.guild.id,
+                        deny: [
                             PermissionFlagsBits.ViewChannel,
                             PermissionFlagsBits.SendMessages,
                             PermissionFlagsBits.Connect,
                             PermissionFlagsBits.Speak,
                         ],
-                    },
-                    {
-                        id: process.env.CLIENT_ID,
-                        allow: [
-                            PermissionFlagsBits.ViewChannel
-                        ],
                     }
                 ],
             });
+            console.log("📝 ¡Puf! Nueva categoría, ahora todo está menos desordenado… un poco.")
 
             const channelList = [
                 {
                     name: "next-session",
                     type: ChannelType.GuildAnnouncement,
-                    edit: [[{ SendMessages: null }, role.id], [{ SendMessages: true }, process.env.CLIENT_ID] ]
+                    edit: [[process.env.CLIENT_ID, { SendMessages: true }], [role.id, { SendMessages: null }]]
                 },
                 {
                     name: "gm",
                     type: ChannelType.GuildText,
                     delete: [role.id],
-                    edit: [[{ SendMessages: true }, process.env.CLIENT_ID]]
+                    edit: [[process.env.CLIENT_ID, { SendMessages: true }]]
                 },
                 {
                     name: "general",
@@ -118,7 +115,7 @@ module.exports = {
                 {
                     name: "info-players",
                     type: ChannelType.GuildText,
-                    edit: [[{ SendMessages: null }, role.id]]
+                    edit: [[role.id, { SendMessages: null }]]
                 },
                 {
                     name: "General",
@@ -137,25 +134,32 @@ module.exports = {
                     type: channelData.type,
                     parent: category.id,
                 });
-
-                if (channelData.name === "next-session") {
-                    const newSchedule = await setSchedule(name, color, channel.id)
-                    const msg = await channel.send(`📆  [**Horario de sesiones**](<https://docs.google.com/spreadsheets/d/149bvpWOX1h7Dk_agutMBA_1-oGRF4cV9vR_kTdr8kug/#gid=${newSchedule}>)  📆`);
-                    await msg.pin();
-                }
+                console.log(`📝 ¡Nueva cueva de palabras! ${channel.name} ahora existe.`)
 
                 if (channelData.edit) {
                     for (const [id, permissions] of channelData.edit) {
-                        await channel.permissionOverwrites.edit(
-                            permissions,
-                            id,
-                        );
+                        try {
+                            await channel.permissionOverwrites.edit(id, permissions);
+                            console.log(`📝 Permisos editados para ${id} en el canal ${channel.name}.`);
+                        }
+                        catch (error) {
+                            console.error(`❌ Error al editar permisos para ${id} en el canal ${channel.name}:`, error);
+                        }
                     }
                 }
                 if (channelData.delete) {
                     for (const id of channelData.delete) {
                         await channel.permissionOverwrites.delete(id);
                     }
+                    console.log("📝 ¡Bam! Permisos eliminados, goblin controla la entrada.")
+                }
+
+                if (channelData.name === "next-session") {
+                    setSchedule(name, color, channel.id).then(async () => {
+                        const msg = await channel.send(`📆  [**Horario de sesiones**](<https://docs.google.com/spreadsheets/d/149bvpWOX1h7Dk_agutMBA_1-oGRF4cV9vR_kTdr8kug/#gid=${newSchedule}>)  📆`);
+                        await msg.pin();
+                        console.log("📝 ¡Zas! Horario apareció, ahora a organizarse.")
+                    });
                 }
             }
 
@@ -174,6 +178,7 @@ module.exports = {
                 },
                 image: interaction.options.getAttachment("image")?.url || null
             });
+            console.log("📝 ¡Tarán! Evento en su sitio, goblin con calendario listo.")
 
             await interaction.editReply({
                 content: "📂 ¡Nueva categoría! Horacio no firmó para esto, no descansa...",

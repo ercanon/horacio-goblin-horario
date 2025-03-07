@@ -14,6 +14,24 @@ module.exports = (client) => {
         return res.status(200).send("¡Horacio despierto, Horacio atento!");
     });
 
+    app.post("/remindSchedule", async (req, res) => {
+        try {
+            let intervalID = null;
+            if (!req.body)
+                intervalID = setInterval(() =>
+                    data.channel.send({
+                        content: { text: msgHoracio.remindSchedule[Math.floor(Math.random() * msgHoracio.pollQuestion.length)] }
+                    }), 2 * 24 * 60 * 60 * 1000);
+            else
+                clearInterval(req.body);
+
+            return res.status(200).send(intervalID ? `intervalID=${intervalID}` : "¡Sí sí! Horacio recordará el horario… ¡o eso cree!");
+        }
+        catch (error) {
+            return res.status(400).send(`Horacio olvidó recordar… o recordó olvidar… ¡ay!\n${error}`);
+        }
+    });
+
     app.post("/emptySchedule", async (req, res) => {
         const data = await getRoleChannel(req.body);
         if (data) {
@@ -21,7 +39,7 @@ module.exports = (client) => {
                 .then((messages) =>
                     messages.first());
             await data.channel.send({
-                constent: `${data.role} ${msgHoracio.emptySchedule[Math.floor(Math.random() * msgHoracio.emptySchedule.length)]}\n${firstMsg}`,
+                content: `${data.role} ${msgHoracio.emptySchedule[Math.floor(Math.random() * msgHoracio.emptySchedule.length)]}\n${firstMsg}`,
                 reply: {
                     messageReference: firstMsg.id,
                     failIfNotExists: false
@@ -46,7 +64,6 @@ module.exports = (client) => {
             else if (dispDates.length > 1) {
                 try {
                     const duration = Math.min(
-                        1 * 60 * 60 * 1000, //TODO Delete
                         5 * 24 * 60 * 60 * 1000,
                         msMinSession
                     );
@@ -92,16 +109,16 @@ module.exports = (client) => {
         .match(/\d+/g)
         .map(Number);
 
-        const startDate = new Date(year, month - 1, day, startHour, startMinute || 0);
-        const endDate   = new Date(year, month - 1, day, endHour, endMinute || 0);
+        const scheduledStartTime = new Date(year, month - 1, day, startHour - 1, startMinute || 0);
+        const scheduledEndTime   = new Date(year, month - 1, day, endHour - 1, endMinute || 0);
 
         if (endDate <= startDate)
             endDate.setDate(endDate.getDate() + 1);
 
         await data.channel.guild.scheduledEvents.edit(eventID, {
             name: `#${sessionNum} Session`,
-            scheduledStartTime: startDate.toUTCString(),
-            scheduledEndTime: endDate.toUTCString()
+            scheduledStartTime,
+            scheduledEndTime
         });
     }
 
