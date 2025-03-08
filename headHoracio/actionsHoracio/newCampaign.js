@@ -37,7 +37,7 @@ module.exports = {
         const botRole = interaction.guild.members.me.roles.highest;
 
         try {
-            if (!interaction.channel.permissionsFor(botRole).has(PermissionFlagsBits.SendMessages)) {
+            if (!interaction.channel.permissionOverwrites?.cache.get(botRole)?.allow.has(PermissionFlagsBits.SendMessages)) {
                 return await interaction.editReply({
                     content: `⚠️ ¡Puerta cerrada! Horacio no puede entrar aquí… ¿maldición o mala suerte?`,
                     flags: [MessageFlags.Ephemeral],
@@ -138,7 +138,7 @@ module.exports = {
 
                 if (channelData.edit) {
                     for (const [id, permissions] of channelData.edit)
-                        await channel.permissionOverwrites.edit(id, permissions);
+                        await channel.permissionOverwrite?.edit(id, permissions);
                 }
                 if (channelData.delete) {
                     for (const id of channelData.delete) 

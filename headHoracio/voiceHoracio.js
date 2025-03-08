@@ -1,6 +1,9 @@
 module.exports = (guild) => {
     const { PermissionFlagsBits } = require("discord.js");
+    const { storeTimelapse, retrieveTimelapse } = require("./eyesHoracio.js")
+    const botRole = guild.members.me.roles.highest;
     const msgHoracio = require("./phrasesHoracio.json");
+
     const express = require("express");
     const app = express();
 
@@ -8,35 +11,80 @@ module.exports = (guild) => {
     const tryPort = (port) => {
         app.listen(port, () => {
             console.log(`🌍 ¡Horacio ahora atrapa datos! Horacio atento en el puerto ${port}.`);
-        }).on('error', (error) => {
-            console.error(`❌ ¡Horacio no atrapa datos! ¿Magia negra? Error en el puerto ${port}:`, error);
+        }).on("error", (error) => {
             if (error.code === "EADDRINUSE")
                 tryPort(port + 1);
         });
     };
     tryPort(3000);
 
+    for (const channel of guild.channels.cache.filter((channel) =>
+        channel.permissionsFor(botRole)?.has(PermissionFlagsBits.SendMessages, false))) {
+        (async () => {
+            console.log(channel.name)
+            const dbData = await retrieveTimelapse(channel.id);
+            if (!dbData)
+                return;
+
+            const { timeStart, duration, actionData } = dbData;
+            switch (actionData.type) {
+                case "interval":
+                    console.log("🕰 ¡Horacio recordando horarios! ¡Horacio atento!");
+                    setInterval(
+                        actionData.action,
+                        duration,
+                        ...actionData.data);
+                    break;
+                case "timeout":
+                    console.log("🕰 ¡Horacio recordando polls! ...Cree");
+                    const timeLeft = duration - Date.now() - timeStart;
+                    if (timeLeft < 0)
+                        return;
+
+                    setTimeout(
+                        actionData.action,
+                        timeLeft,
+                        ...actionData.data);
+                    break;
+            }
+        }) ();
+    }
+
     app.post("/awake", (req, res) => {
         console.log("📡 ¡Horacio despierto, ojos abiertos, cerebro… casi!");
         return res.status(200).send("¡Horacio despierto, Horacio atento!");
     });
 
-    app.post("/replyPinned", async (req, res) => {
+    app.post("/emptySchedule", async (req, res) => {
         const data = await getRoleChannel(req.body);
         if (data) {
-            const phraseType = req.body.phraseType;
-            const pinnedMsg = await data.channel.messages.fetchPinned();
-            data.channel.send({
-                content: `${data.role} ${msgHoracio[phraseType][Math.floor(Math.random() * msgHoracio[phraseType].length)]}`,
-                reply: {
-                    messageReference: pinnedMsg?.last().id,
-                    failIfNotExists: false
-                }
+            const duration = 2 * 24 * 60 * 60 * 1000
+            const id = setInterval(
+                replyPinned,
+                duration,
+                "remindSchedule", data);
+            await storeTimelapse(duration, data.channel.id, {
+                id,
+                type: "interval",
+                action: "replyPinned",
+                data: ["remindSchedule", data]
             });
-            return res.status(200).send("Horacio recordará el horario… ¡o eso cree!");
+
+            await replyPinned("emptySchedule", data);
+            return res.status(200).send("¡Horacio avisó para horario!");
         }
-        return res.status(400).send(`Horacio olvidó recordar… o recordó olvidar…`);
+        return res.status(400).send("¡Horacio no avisó! Faltan ingredientes.");
     });
+    async function replyPinned(phrases, data) {
+        const pinnedMsg = await data.channel.messages.fetchPinned();
+        data.channel.send({
+            content: `${data.role} ${msgHoracio[phrases][Math.floor(Math.random() * msgHoracio[phrases].length)]}`,
+            reply: {
+                messageReference: pinnedMsg?.last().id,
+                failIfNotExists: false
+            }
+        });
+    }
 
     app.post("/notifySession", async (req, res) => {
         const data = await getRoleChannel(req.body);
@@ -45,6 +93,7 @@ module.exports = (guild) => {
             const msMinSession = req.body.msMinSession - Date.now();
             const msgResult = `${data.role} #${sessionNum} Session: `;
 
+            clearInterval(await retrieveTimelapse(data.channel.id).actionData.id);
             if (dispDates.length === 1 || msMinSession <= 4 * 24 * 60 * 60 * 1000) {
                 data.channel.send(msgResult + dispDates[0]);
                 editSchedule(dispDates[0], sessionNum, data);
@@ -66,14 +115,18 @@ module.exports = (guild) => {
                             duration: duration / (60 * 60 * 1000)
                         }
                     });
-                    setTimeout(() => {
-                        const winningOption = msgPoll.poll.answers.reduce((prev, current) =>
-                            (prev.votes > current.votes) ? prev : current);
 
-                        data.channel.send(msgResult + winningOption.text);
-                        editSchedule(winningOption.text, sessionNum, data);
-                    }, duration + 60 * 1000);
-
+                    const elapseDuration = duration + 60 * 1000;
+                    const id = setTimeout(
+                        checkDayWinner,
+                        elapseDuration,
+                        msgPoll.poll.answers, sessionNum, data);
+                    await storeTimelapse(elapseDuration, data.channel.id, {
+                        id,
+                        type: "timelapse",
+                        action: "replyPinned",
+                        data: [msgPoll.poll.answers, msgResult, sessionNum, data]
+                    });
                 }
                 catch (error) {
                     console.error("❌ Horacio intentó, pero encuesta dijo 'no'.", error);
@@ -83,6 +136,13 @@ module.exports = (guild) => {
         }
         return res.status(400).send("¡Horacio no notificó sesión! Faltan ingredientes.");
     });
+    function checkDayWinner(answers, msgResult, sessionNum, data) {
+        const winningOption = answers.reduce((prev, current) =>
+            (prev.votes > current.votes) ? prev : current);
+
+        data.channel.send(msgResult + winningOption.text);
+        editSchedule(winningOption.text, sessionNum, data);
+    }
 
     async function editSchedule(dateString, sessionNum, data) {
         const scheduledEvents = await data.channel.guild.scheduledEvents.fetch();
@@ -111,10 +171,9 @@ module.exports = (guild) => {
     }
 
     const msgPattern = /^<@!?&?\d+> #\d+ Session: .+$/;
-    const botRole = guild.members.me.roles.highest;
     guild.client.on("messageCreate", async (message) => {
         if (message.guild.id !== guild.id &&
-            message.channel.permissionsFor(botRole).has(PermissionFlagsBits.SendMessages) &&
+            message.channel.permissionOverwrites?.cache.get(botRole)?.allow.has(PermissionFlagsBits.SendMessages) &&
             msgPattern.test(message.content)) {
             message.channel.messages.fetch({ limit: 10 }).then((lastMsgs) =>
                 lastMsgs.forEach(async (msg) => {
