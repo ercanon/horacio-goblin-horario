@@ -7,8 +7,8 @@ const {
     MessageFlags
 } = require("discord.js");
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
-require('./voiceHoracio.js')(client);
 
+/*>--------------- { Commands } ---------------<*/
 client.commands = new Collection();
 const commandFiles = require("fs")
     .readdirSync("./headHoracio/actionsHoracio")
@@ -55,7 +55,12 @@ client.on("interactionCreate", async (interaction) => {
     }
 });
 
+/*>--------------- { Guilds } ---------------<*/
+client.on("guildCreate", require("./voiceHoracio.js"));
+
+/*>--------------- { Bot Initialization } ---------------<*/
 client.once("ready", () => {
+    client.guilds.cache.forEach(require("./voiceHoracio.js"));
     console.log(`✅ Horacio está, ¡sí sí! ¡Conectado, todo listo!`);
 });
 

@@ -34,9 +34,10 @@ module.exports = {
         const name = interaction.options.getString("name");
         const color = interaction.options.getString("color") || "#0099FF";
         const channelInteract = interaction.guild.channels;
+        const botRole = interaction.guild.members.me.roles.highest;
 
         try {
-            if (!interaction.channel.permissionsFor(process.env.CLIENT_ID).has(PermissionFlagsBits.SendMessages)) {
+            if (!interaction.channel.permissionsFor(botRole).has(PermissionFlagsBits.SendMessages)) {
                 return await interaction.editReply({
                     content: `⚠️ ¡Puerta cerrada! Horacio no puede entrar aquí… ¿maldición o mala suerte?`,
                     flags: [MessageFlags.Ephemeral],
@@ -69,7 +70,6 @@ module.exports = {
                             PermissionFlagsBits.Speak,
                         ],
                     },
-                    { id: process.env.CLIENT_ID },
                     {
                         id: role.id,
                         allow: [
@@ -96,13 +96,13 @@ module.exports = {
                 {
                     name: "next-session",
                     type: ChannelType.GuildAnnouncement,
-                    edit: [[process.env.CLIENT_ID, { SendMessages: true }], [role.id, { SendMessages: null }]]
+                    edit: [[botRole, { ViewChannel: true, SendMessages: true }], [role.id, { SendMessages: null }]]
                 },
                 {
                     name: "gm",
                     type: ChannelType.GuildText,
                     delete: [role.id],
-                    edit: [[process.env.CLIENT_ID, { SendMessages: true }]]
+                    edit: [[botRole, { ViewChannel: true, SendMessages: true }]]
                 },
                 {
                     name: "general",
@@ -137,25 +137,17 @@ module.exports = {
                 console.log(`📝 ¡Nueva cueva de palabras! ${channel.name} ahora existe.`)
 
                 if (channelData.edit) {
-                    for (const [id, permissions] of channelData.edit) {
-                        try {
-                            await channel.permissionOverwrites.edit(id, permissions);
-                            console.log(`📝 Permisos editados para ${id} en el canal ${channel.name}.`);
-                        }
-                        catch (error) {
-                            console.error(`❌ Error al editar permisos para ${id} en el canal ${channel.name}:`, error);
-                        }
-                    }
+                    for (const [id, permissions] of channelData.edit)
+                        await channel.permissionOverwrites.edit(id, permissions);
                 }
                 if (channelData.delete) {
-                    for (const id of channelData.delete) {
+                    for (const id of channelData.delete) 
                         await channel.permissionOverwrites.delete(id);
-                    }
-                    console.log("📝 ¡Bam! Permisos eliminados, goblin controla la entrada.")
                 }
+                console.log("📝 ¡Zas! Permisos nuevos, canal más seguro (o más peligroso).")
 
                 if (channelData.name === "next-session") {
-                    setSchedule(name, color, channel.id).then(async () => {
+                    setSchedule(name, color, channel.id).then(async (newSchedule) => {
                         const msg = await channel.send(`📆  [**Horario de sesiones**](<https://docs.google.com/spreadsheets/d/149bvpWOX1h7Dk_agutMBA_1-oGRF4cV9vR_kTdr8kug/#gid=${newSchedule}>)  📆`);
                         await msg.pin();
                         console.log("📝 ¡Zas! Horario apareció, ahora a organizarse.")
