@@ -13,7 +13,7 @@ module.exports = {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
         try {
-            if (!interaction.channel.permissionOverwrites?.cache.get(interaction.guild.members.me.roles.highest)?.allow.has(PermissionFlagsBits.SendMessages)) {
+            if (!interaction.channel.permissionsFor(interaction.guild.members.me.roles.highest.id)?.has(PermissionFlagsBits.SendMessages, false)) {
                 return await interaction.editReply({
                     content: `⚠️ ¡Puerta cerrada! Horacio no puede entrar aquí… ¿maldición o mala suerte?`,
                     flags: [MessageFlags.Ephemeral],

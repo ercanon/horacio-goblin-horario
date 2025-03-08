@@ -19,14 +19,12 @@ module.exports = {
             throw error;
         }
     }, 
-    async storeTimelapse(duration, channelID, actionData) {
+    async storeTimelapse(data) {
         try {
             const response = await axios.post(process.env.GAS_URL, {
                 postType: "storeTimelapse",
-                channelID,
                 timeStart: Date.now(),
-                duration,
-                actionData
+                ...data
             });
 
             if (!response.data.success)

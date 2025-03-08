@@ -37,7 +37,7 @@ module.exports = {
         const botRole = interaction.guild.members.me.roles.highest;
 
         try {
-            if (!interaction.channel.permissionOverwrites?.cache.get(botRole)?.allow.has(PermissionFlagsBits.SendMessages)) {
+            if (!interaction.channel.permissionsFor(botRole)?.has(PermissionFlagsBits.SendMessages, false)) {
                 return await interaction.editReply({
                     content: `⚠️ ¡Puerta cerrada! Horacio no puede entrar aquí… ¿maldición o mala suerte?`,
                     flags: [MessageFlags.Ephemeral],
@@ -62,7 +62,7 @@ module.exports = {
                 type: ChannelType.GuildCategory,
                 permissionOverwrites: [
                     {
-                        id: interaction.user.id,
+                        id: botRole,
                         allow: [
                             PermissionFlagsBits.ViewChannel,
                             PermissionFlagsBits.SendMessages,
@@ -71,7 +71,16 @@ module.exports = {
                         ],
                     },
                     {
-                        id: role.id,
+                        id: interaction.user,
+                        allow: [
+                            PermissionFlagsBits.ViewChannel,
+                            PermissionFlagsBits.SendMessages,
+                            PermissionFlagsBits.Connect,
+                            PermissionFlagsBits.Speak,
+                        ],
+                    },
+                    {
+                        id: role,
                         allow: [
                             PermissionFlagsBits.ViewChannel,
                             PermissionFlagsBits.SendMessages,
@@ -96,35 +105,38 @@ module.exports = {
                 {
                     name: "next-session",
                     type: ChannelType.GuildAnnouncement,
-                    edit: [[botRole, { ViewChannel: true, SendMessages: true }], [role.id, { SendMessages: null }]]
+                    edit: [[role, { SendMessages: null }]]
                 },
                 {
                     name: "gm",
                     type: ChannelType.GuildText,
-                    delete: [role.id],
-                    edit: [[botRole, { ViewChannel: true, SendMessages: true }]]
+                    delete: [role]
                 },
                 {
                     name: "general",
-                    type: ChannelType.GuildText
+                    type: ChannelType.GuildText,
+                    delete: [botRole]
                 },
                 {
                     name: "memes",
-                    type: ChannelType.GuildText
+                    type: ChannelType.GuildText,
+                    delete: [botRole]
                 },
                 {
                     name: "info-players",
                     type: ChannelType.GuildText,
-                    edit: [[role.id, { SendMessages: null }]]
+                    edit: [[role, { SendMessages: null }]],
+                    delete: [botRole]
                 },
                 {
                     name: "General",
-                    type: ChannelType.GuildVoice
+                    type: ChannelType.GuildVoice,
+                    delete: [botRole]
                 },
                 {
                     name: "Private",
                     type: ChannelType.GuildVoice,
-                    delete: [role.id],
+                    delete: [role, botRole]
                 },
             ];
 
@@ -133,24 +145,21 @@ module.exports = {
                     name: channelData.name,
                     type: channelData.type,
                     parent: category.id,
-                });
-                console.log(`📝 ¡Nueva cueva de palabras! ${channel.name} ahora existe.`)
+                })
 
                 if (channelData.edit) {
                     for (const [id, permissions] of channelData.edit)
-                        await channel.permissionOverwrite?.edit(id, permissions);
+                        await channel.permissionOverwrites.edit(id, permissions);
                 }
                 if (channelData.delete) {
-                    for (const id of channelData.delete) 
+                    for (const id of channelData.delete)
                         await channel.permissionOverwrites.delete(id);
                 }
-                console.log("📝 ¡Zas! Permisos nuevos, canal más seguro (o más peligroso).")
 
                 if (channelData.name === "next-session") {
                     setSchedule(name, color, channel.id).then(async (newSchedule) => {
                         const msg = await channel.send(`📆  [**Horario de sesiones**](<https://docs.google.com/spreadsheets/d/149bvpWOX1h7Dk_agutMBA_1-oGRF4cV9vR_kTdr8kug/#gid=${newSchedule}>)  📆`);
                         await msg.pin();
-                        console.log("📝 ¡Zas! Horario apareció, ahora a organizarse.")
                     });
                 }
             }

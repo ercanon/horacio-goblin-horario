@@ -1,5 +1,8 @@
 module.exports = (guild) => {
-    const { PermissionFlagsBits } = require("discord.js");
+    const {
+        ChannelType,
+        PermissionFlagsBits
+    } = require("discord.js");
     const { storeTimelapse, retrieveTimelapse } = require("./eyesHoracio.js")
     const botRole = guild.members.me.roles.highest;
     const msgHoracio = require("./phrasesHoracio.json");
@@ -10,49 +13,28 @@ module.exports = (guild) => {
     app.use(express.json());
     const tryPort = (port) => {
         app.listen(port, () => {
-            console.log(`🌍 ¡Horacio ahora atrapa datos! Horacio atento en el puerto ${port}.`);
+            console.log(`🌍 ¡Horacio ahora atrapa datos para ${guild.name}! Horacio atento en el puerto ${port}.`);
         }).on("error", (error) => {
             if (error.code === "EADDRINUSE")
                 tryPort(port + 1);
         });
     };
-    tryPort(3000);
-
-    for (const channel of guild.channels.cache.filter((channel) =>
-        channel.permissionsFor(botRole)?.has(PermissionFlagsBits.SendMessages, false))) {
-        (async () => {
-            console.log(channel.name)
-            const dbData = await retrieveTimelapse(channel.id);
-            if (!dbData)
-                return;
-
-            const { timeStart, duration, actionData } = dbData;
-            switch (actionData.type) {
-                case "interval":
-                    console.log("🕰 ¡Horacio recordando horarios! ¡Horacio atento!");
-                    setInterval(
-                        actionData.action,
-                        duration,
-                        ...actionData.data);
-                    break;
-                case "timeout":
-                    console.log("🕰 ¡Horacio recordando polls! ...Cree");
-                    const timeLeft = duration - Date.now() - timeStart;
-                    if (timeLeft < 0)
-                        return;
-
-                    setTimeout(
-                        actionData.action,
-                        timeLeft,
-                        ...actionData.data);
-                    break;
-            }
-        }) ();
-    }
+    tryPort(3000); 
 
     app.post("/awake", (req, res) => {
         console.log("📡 ¡Horacio despierto, ojos abiertos, cerebro… casi!");
         return res.status(200).send("¡Horacio despierto, Horacio atento!");
+    });
+
+    app.post("/unableSession", async (req, res) => {
+        const data = await getRoleChannel(req.body);
+        if (data) {
+            data.channel.send({
+                content: `${data.role} ${msgHoracio[unableSession][Math.floor(Math.random() * msgHoracio[unableSession].length)]}`,
+            });
+            return res.status(200).send("¡Horacio triste! No haber session");
+        }
+        return res.status(400).send("¡Horacio confuso! ¿Session? Faltan ingredientes.");
     });
 
     app.post("/emptySchedule", async (req, res) => {
@@ -63,12 +45,12 @@ module.exports = (guild) => {
                 replyPinned,
                 duration,
                 "remindSchedule", data);
-            await storeTimelapse(duration, data.channel.id, {
-                id,
-                type: "interval",
-                action: "replyPinned",
-                data: ["remindSchedule", data]
-            });
+            //await storeTimelapse(duration, data.channel.id, {
+            //    id,
+            //    type: "interval",
+            //    action: "replyPinned",
+            //    data: ["remindSchedule", data]
+            //});
 
             await replyPinned("emptySchedule", data);
             return res.status(200).send("¡Horacio avisó para horario!");
@@ -120,13 +102,13 @@ module.exports = (guild) => {
                     const id = setTimeout(
                         checkDayWinner,
                         elapseDuration,
-                        msgPoll.poll.answers, sessionNum, data);
-                    await storeTimelapse(elapseDuration, data.channel.id, {
-                        id,
-                        type: "timelapse",
-                        action: "replyPinned",
-                        data: [msgPoll.poll.answers, msgResult, sessionNum, data]
-                    });
+                        msgPoll.poll.answers, msgResult, sessionNum, data);
+                    //await storeTimelapse(elapseDuration, data.channel.id, {
+                    //    id,
+                    //    type: "timelapse",
+                    //    action: "replyPinned",
+                    //    data: [msgPoll.poll.answers, msgResult, sessionNum, data]
+                    //});
                 }
                 catch (error) {
                     console.error("❌ Horacio intentó, pero encuesta dijo 'no'.", error);
@@ -173,9 +155,9 @@ module.exports = (guild) => {
     const msgPattern = /^<@!?&?\d+> #\d+ Session: .+$/;
     guild.client.on("messageCreate", async (message) => {
         if (message.guild.id !== guild.id &&
-            message.channel.permissionOverwrites?.cache.get(botRole)?.allow.has(PermissionFlagsBits.SendMessages) &&
+            message.channel.permissionsFor(botRole)?.has(PermissionFlagsBits.SendMessages, false) &&
             msgPattern.test(message.content)) {
-            message.channel.messages.fetch({ limit: 10 }).then((lastMsgs) =>
+            message.channel.messages.fetch({ limit: 26 }).then((lastMsgs) =>
                 lastMsgs.forEach(async (msg) => {
                     if (!msgPattern.test(msg.content) && !msg.pinned && msg.deletable) {
                         await msg.delete().catch((error) =>
@@ -187,6 +169,46 @@ module.exports = (guild) => {
             console.warn("⚠️ ¡Puf! Mensajes desaparecidos, como magia (o garra de Horacio).");
         }
     });
+
+    guild.channels.cache
+        .filter((channel) =>
+            channel.type === ChannelType.GuildAnnouncement &&
+            channel.permissionsFor(botRole)?.has(PermissionFlagsBits.SendMessages, false))
+        .forEach((channel) => {
+            retrieveTimelapse(channel.id).then((dbData) => {
+                if (!dbData)
+                    return;
+
+                const { timeStart, duration, actionID, actionType, actionData } = dbData;
+                let id = null;
+                switch (actionType) {
+                    case "interval":
+                        console.log(`🕰 ¡Horacio recordando horarios en ${channel.name}! ¡Horacio atento!`);
+                        id = setInterval(
+                            actionData.action,
+                            duration,
+                            ...(actionData.data));
+                        break;
+                    case "timeout":
+                        console.log(`🕰 ¡Horacio recordando polls en ${channel.name}! ...Cree`);
+                        const timeLeft = duration - Date.now() - timeStart;
+                        if (timeLeft < 0)
+                            return;
+
+                        id = setTimeout(
+                            actionData.action,
+                            timeLeft,
+                            ...(actionData.data));
+                        break;
+                }
+
+                if (id)
+                    storeTimelapse({
+                        ...dbData,
+                        actionID: id
+                    });
+            });
+        });
 
     async function getRoleChannel(data) {
         if (data) {
