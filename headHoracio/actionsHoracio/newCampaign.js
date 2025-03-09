@@ -51,10 +51,12 @@ module.exports = {
                 });
             }
 
-            const role = await interaction.guild.roles.create({
-                name,
-                color
-            });
+            const role = interaction.guild.roles.cache.find((role) =>
+                role.name.toLowerCase() === name.toLowerCase()) ||
+                await interaction.guild.roles.create({
+                    name,
+                    color
+                });
             console.log("📝 ¡Eh! Rol asignado, ahora eres alguien… ¡o algo!")
 
             const category = await channelInteract.create({
