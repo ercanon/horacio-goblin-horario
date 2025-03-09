@@ -19,7 +19,7 @@ module.exports = {
             throw error;
         }
     }, 
-    async storeTimelapse(data) {
+    async storeTimeout(data) {
         try {
             const response = await axios.post(process.env.GAS_URL, {
                 postType: "storeTimelapse",
@@ -35,11 +35,12 @@ module.exports = {
             throw error;
         }
     },
-    async retrieveTimelapse(channelID) {
+    async retrieveTimeout(channelID, type) {
         try {
             const response = await axios.post(process.env.GAS_URL, {
                 postType: "retrieveTimelapse",
-                channelID
+                channelID,
+                type
             });
 
             if (response.data.success)

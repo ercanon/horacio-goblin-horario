@@ -3,9 +3,65 @@ module.exports = (guild) => {
         ChannelType,
         PermissionFlagsBits
     } = require("discord.js");
-    const { storeTimelapse, retrieveTimelapse } = require("./eyesHoracio.js")
+    const { storeTimeout, retrieveTimeout } = require("./eyesHoracio.js")
     const botRole = guild.members.me.roles.highest;
     const msgHoracio = require("./phrasesHoracio.json");
+
+    const helperFunctions = {
+        checkDayWinner(answers, msgResult, sessionNum, channel) {
+            const winningOption = answers.reduce((prev, current) =>
+                (prev.votes > current.votes) ? prev : current);
+
+            channel.send(msgResult + winningOption.text);
+            helperFunctions.editSchedule(winningOption.text, sessionNum, channel);
+        },
+        async editSchedule(dateString, sessionNum, channel) {
+            const scheduledEvents = await guild.scheduledEvents.fetch();
+            const categoryName = channel.parent?.name.toLowerCase();
+            const eventID = scheduledEvents.find((event) =>
+                event.entityMetadata?.location?.toLowerCase() === categoryName);
+
+            if (!eventID)
+                return console.error("❌ ¡Nada de evento! ¿se lo comió un dragón?");
+
+            const year = new Date().getFullYear();
+            const [day, month, startHour, startMinute, endHour, endMinute] = dateString
+                .match(/\d+/g)
+                .map(Number);
+
+            const scheduledStartTime = new Date(year, month - 1, day, startHour - 1, startMinute || 0);
+            const scheduledEndTime = new Date(year, month - 1, day, endHour - 1, endMinute || 0);
+
+            if (scheduledEndTime <= scheduledStartTime)
+                scheduledEndTime.setDate(scheduledEndTime.getDate() + 1);
+
+            await guild.scheduledEvents.edit(eventID, {
+                name: `#${sessionNum} Session`,
+                scheduledStartTime,
+                scheduledEndTime
+            });
+        },
+        async getRoleChannel({ channelID }) {
+            try {
+                if (channelID) {
+                    const channel = await guild.channels.fetch(channelID);
+                    if (channel) {
+                        const categoryName = channel.parent?.name.toLowerCase();
+                        return [
+                            channel,
+                            guild.roles.cache.find((role) =>
+                                role.name.toLowerCase() === categoryName),
+                        ];
+                    }
+                }
+                throw new Error("Channel not defined");
+            }
+            catch (error) {
+                console.error("❌ ¡Canal desaparecido! ¿Lo robó un elfo o algo?", error);
+                return [];
+            }
+        },
+    }
 
     const express = require("express");
     const app = express();
@@ -17,6 +73,8 @@ module.exports = (guild) => {
         }).on("error", (error) => {
             if (error.code === "EADDRINUSE")
                 tryPort(port + 1);
+            else
+                console.error("❌ Error atrapando datos para ${guild.name}", error);           
         });
     };
     tryPort(3000); 
@@ -27,58 +85,43 @@ module.exports = (guild) => {
     });
 
     app.post("/unableSession", async (req, res) => {
-        const data = await getRoleChannel(req.body);
-        if (data) {
-            data.channel.send({
-                content: `${data.role} ${msgHoracio[unableSession][Math.floor(Math.random() * msgHoracio[unableSession].length)]}`,
+        const [ channel, role ] = await helperFunctions.getRoleChannel(req.body);
+        if (channel) {
+            channel.send({
+                content: `${role} ${msgHoracio["unableSession"][Math.floor(Math.random() * msgHoracio["unableSession"].length)]}`,
             });
             return res.status(200).send("¡Horacio triste! No haber session");
         }
         return res.status(400).send("¡Horacio confuso! ¿Session? Faltan ingredientes.");
     });
 
-    app.post("/emptySchedule", async (req, res) => {
-        const data = await getRoleChannel(req.body);
-        if (data) {
-            const duration = 2 * 24 * 60 * 60 * 1000
-            const id = setInterval(
-                replyPinned,
-                duration,
-                "remindSchedule", data);
-            //await storeTimelapse(duration, data.channel.id, {
-            //    id,
-            //    type: "interval",
-            //    action: "replyPinned",
-            //    data: ["remindSchedule", data]
-            //});
-
-            await replyPinned("emptySchedule", data);
+    app.post("/replyPinned", async (req, res) => {
+        const [ channel, role ] = await helperFunctions.getRoleChannel(req.body);
+        if (channel) {
+            const pinnedMsg = await channel.messages.fetchPinned();
+            const phraseType = req.body.phraseType;
+            channel.send({
+                content: `${role} ${msgHoracio[phraseType][Math.floor(Math.random() * msgHoracio[phraseType].length)]}`,
+                reply: {
+                    messageReference: pinnedMsg?.last().id,
+                    failIfNotExists: false
+                }
+            });
             return res.status(200).send("¡Horacio avisó para horario!");
         }
         return res.status(400).send("¡Horacio no avisó! Faltan ingredientes.");
     });
-    async function replyPinned(phrases, data) {
-        const pinnedMsg = await data.channel.messages.fetchPinned();
-        data.channel.send({
-            content: `${data.role} ${msgHoracio[phrases][Math.floor(Math.random() * msgHoracio[phrases].length)]}`,
-            reply: {
-                messageReference: pinnedMsg?.last().id,
-                failIfNotExists: false
-            }
-        });
-    }
 
     app.post("/notifySession", async (req, res) => {
-        const data = await getRoleChannel(req.body);
-        if (data) {
+        const [ channel, role ] = await helperFunctions.getRoleChannel(req.body);
+        if (channel) {
             const { dispDates, sessionNum } = req.body;
             const msMinSession = req.body.msMinSession - Date.now();
-            const msgResult = `${data.role} #${sessionNum} Session: `;
+            const msgResult = `${role} #${sessionNum} Session: `;
 
-            clearInterval(await retrieveTimelapse(data.channel.id).actionData.id);
             if (dispDates.length === 1 || msMinSession <= 4 * 24 * 60 * 60 * 1000) {
-                data.channel.send(msgResult + dispDates[0]);
-                editSchedule(dispDates[0], sessionNum, data);
+                channel.send(msgResult + dispDates[0]);
+                helperFunctions.editSchedule(dispDates[0], sessionNum, channel);
             }
             else if (dispDates.length > 1) {
                 try {
@@ -87,8 +130,8 @@ module.exports = (guild) => {
                         msMinSession
                     );
 
-                    const msgPoll = await data.channel.send({
-                        content: `${data.role}`,
+                    const msgPoll = await channel.send({
+                        content: `${role}`,
                         poll: {
                             question: { text: msgHoracio.pollQuestion[Math.floor(Math.random() * msgHoracio.pollQuestion.length)] },
                             answers: dispDates.map((date) =>
@@ -98,17 +141,19 @@ module.exports = (guild) => {
                         }
                     });
 
-                    const elapseDuration = duration + 60 * 1000;
-                    const id = setTimeout(
-                        checkDayWinner,
-                        elapseDuration,
-                        msgPoll.poll.answers, msgResult, sessionNum, data);
-                    //await storeTimelapse(elapseDuration, data.channel.id, {
-                    //    id,
-                    //    type: "timelapse",
-                    //    action: "replyPinned",
-                    //    data: [msgPoll.poll.answers, msgResult, sessionNum, data]
-                    //});
+                    const elapsedDuration = duration + 60 * 1000;
+                    setTimeout(
+                        helperFunctions.checkDayWinner,
+                        elapsedDuration,
+                        msgPoll.poll.answers, msgResult, sessionNum, channel);
+                    await storeTimeout({
+                        duration: elapsedDuration,
+                        type: "timeout",
+                        actionData: {
+                            action: "checkDayWinner",
+                            data: [msgPoll.poll.answers, msgResult, sessionNum, channel]
+                        }
+                    });
                 }
                 catch (error) {
                     console.error("❌ Horacio intentó, pero encuesta dijo 'no'.", error);
@@ -118,39 +163,6 @@ module.exports = (guild) => {
         }
         return res.status(400).send("¡Horacio no notificó sesión! Faltan ingredientes.");
     });
-    function checkDayWinner(answers, msgResult, sessionNum, data) {
-        const winningOption = answers.reduce((prev, current) =>
-            (prev.votes > current.votes) ? prev : current);
-
-        data.channel.send(msgResult + winningOption.text);
-        editSchedule(winningOption.text, sessionNum, data);
-    }
-
-    async function editSchedule(dateString, sessionNum, data) {
-        const scheduledEvents = await data.channel.guild.scheduledEvents.fetch();
-        const eventID = scheduledEvents.find((event) =>
-            event.entityMetadata?.location?.toLowerCase() === data.role.name.toLowerCase());
-
-        if (!eventID)
-            return console.error("❌ ¡Nada de evento! ¿se lo comió un dragón?");
-
-        const year = new Date().getFullYear();
-        const [day, month, startHour, startMinute, endHour, endMinute] = dateString
-        .match(/\d+/g)
-        .map(Number);
-
-        const scheduledStartTime = new Date(year, month - 1, day, startHour - 1, startMinute || 0);
-        const scheduledEndTime   = new Date(year, month - 1, day, endHour - 1, endMinute || 0);
-
-        if (endDate <= startDate)
-            endDate.setDate(endDate.getDate() + 1);
-
-        await data.channel.guild.scheduledEvents.edit(eventID, {
-            name: `#${sessionNum} Session`,
-            scheduledStartTime,
-            scheduledEndTime
-        });
-    }
 
     const msgPattern = /^<@!?&?\d+> #\d+ Session: .+$/;
     guild.client.on("messageCreate", async (message) => {
@@ -171,59 +183,24 @@ module.exports = (guild) => {
     });
 
     guild.channels.cache
-        .filter((channel) =>
-            channel.type === ChannelType.GuildAnnouncement &&
-            channel.permissionsFor(botRole)?.has(PermissionFlagsBits.SendMessages, false))
-        .forEach((channel) => {
-            retrieveTimelapse(channel.id).then((dbData) => {
-                if (!dbData)
-                    return;
+    .filter((channel) =>
+        channel.type === ChannelType.GuildAnnouncement &&
+        channel.permissionsFor(botRole)?.has(PermissionFlagsBits.SendMessages, false))
+    .forEach((channel) => {
+        retrieveTimeout(channel.id, "timeout").then((dbData) => {
+            if (!dbData)
+                return;
 
-                const { timeStart, duration, actionID, actionType, actionData } = dbData;
-                let id = null;
-                switch (actionType) {
-                    case "interval":
-                        console.log(`🕰 ¡Horacio recordando horarios en ${channel.name}! ¡Horacio atento!`);
-                        id = setInterval(
-                            actionData.action,
-                            duration,
-                            ...(actionData.data));
-                        break;
-                    case "timeout":
-                        console.log(`🕰 ¡Horacio recordando polls en ${channel.name}! ...Cree`);
-                        const timeLeft = duration - Date.now() - timeStart;
-                        if (timeLeft < 0)
-                            return;
+            console.log(`🕰 ¡Horacio recordando polls en ${channel.name}! ...Cree`);
+            const { timeStart, duration, actionData } = dbData;
+            const timeLeft = duration - Date.now() - timeStart;
 
-                        id = setTimeout(
-                            actionData.action,
-                            timeLeft,
-                            ...(actionData.data));
-                        break;
-                }
-
-                if (id)
-                    storeTimelapse({
-                        ...dbData,
-                        actionID: id
-                    });
-            });
+            if (timeLeft < 0)
+                return;
+            setTimeout(
+                helperFunctions[actionData.action],
+                timeLeft,
+                ...(actionData.data));
         });
-
-    async function getRoleChannel(data) {
-        if (data) {
-            const channel = data.channelID
-                ? await guild.channels.fetch(data.channelID)
-                : null;
-            if (channel) {
-                const categoryName = channel.parent?.name.toLowerCase();
-                return {
-                    channel,
-                    role: channel.guild.roles.cache.find((role) =>
-                        role.name.toLowerCase() === categoryName),
-                };
-            }
-        }
-        return null;
-    }
+    });
 };
