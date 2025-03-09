@@ -56,11 +56,14 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 /*>--------------- { Guilds } ---------------<*/
-client.on("guildCreate", require("./voiceHoracio.js"));
+const VoiceHoracio = require("./voiceHoracio.js");
+client.on("guildCreate", (guild) =>
+    new VoiceHoracio(guild));
 
 /*>--------------- { Bot Initialization } ---------------<*/
 client.once("ready", () => {
-    client.guilds.cache.forEach(require("./voiceHoracio.js"));
+    client.guilds.cache.forEach((guild) =>
+        new VoiceHoracio(guild));
     console.log(`✅ Horacio está, ¡sí sí! ¡Conectado, todo listo!`);
 });
 
