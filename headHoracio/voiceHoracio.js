@@ -32,6 +32,14 @@ module.exports = class VoiceHoracio {
         app.post("/unableSession", async (req, res) => {
             const [channel, role] = await this.getRoleChannel(req.body);
             if (channel) {
+                if (this.#inrReminder[channel.id])
+                    clearInterval(this.#inrReminder[channel.id]);
+                await storeTimelapse({
+                    channelID: channel.id,
+                    duration: 0,
+                    type: "interval"
+                });
+
                 channel.send({
                     content: `${role} ${msgHoracio["unableSession"][Math.floor(Math.random() * msgHoracio["unableSession"].length)]}`,
                 });
@@ -44,21 +52,18 @@ module.exports = class VoiceHoracio {
             const { channelID } = req.body;
             this.replyPinned("emptySchedule", channelID);
 
-            if (this.#inrReminder[channelID])
-                clearInterval(this.#inrReminder[channelID])
             const duration = 2 * 24 * 60 * 60 * 1000;
             this.#inrReminder[channelID] = setInterval(() =>
-                this.replyPinned("emptySchedule", channelID),
+                this.replyPinned("remindSchedule", channelID),
                 duration
             );
-
             await storeTimelapse({
                 channelID,
                 duration,
                 type: "interval",
                 actionData: {
                     action: "replyPinned",
-                    data: JSON.stringify(["emptySchedule", channelID])
+                    data: ["remindSchedule", channelID]
                 }
             });
 
@@ -69,7 +74,7 @@ module.exports = class VoiceHoracio {
             const [channel, role] = await this.getRoleChannel(req.body);
             if (channel) {
                 if (this.#inrReminder[channel.id])
-                    clearInterval(this.#inrReminder[channel.id])
+                    clearInterval(this.#inrReminder[channel.id]);
                 await storeTimelapse({
                     channelID: channel.id,
                     duration: 0,
@@ -113,7 +118,7 @@ module.exports = class VoiceHoracio {
                             type: "timeout",
                             actionData: {
                                 action: "checkDayWinner",
-                                data: JSON.stringify([channel.id, msgResult, sessionNum])
+                                data: [channel.id, msgResult, sessionNum]
                             }
                         });
                     }
@@ -137,7 +142,7 @@ module.exports = class VoiceHoracio {
                         await msg.delete().catch((error) =>
                             console.error("❌ ¡Bah! Mensaje terco, no se deja borrar. ¿Magia oscura?", error));
                     }
-                })
+                });
 
                 console.warn("⚠️ ¡Puf! Mensajes desaparecidos, como magia (o garra de Horacio).");
             }
@@ -148,31 +153,30 @@ module.exports = class VoiceHoracio {
                 channel.type === ChannelType.GuildAnnouncement &&
                 channel.permissionsFor(botRole)?.has(PermissionFlagsBits.SendMessages, false))
             .forEach(async (channel) => {
-                const timelapseList = await retrieveTimelapse(channel.id) || [{}];
-                console.log(timelapseList)//TODO
+                const timelapseList = await retrieveTimelapse(channel.id);
                 for (const { type, timeStart, duration, actionData } of timelapseList) {
                     switch (type) {
                         case "timeout":
-                            const timeLeft = duration - Date.now() - timeStart;
-                            if (timeLeft < 0)
-                                return;
+                            const timeLeft = (timeStart + duration) - Date.now();
+                            if (timeLeft <= 0)
+                                continue;
 
-                            console.log(`🕰 ¡Horacio recordando polls en ${channel.name}! ...Cree`);
+                            console.log(`🕰 ¡Horacio recordando polls en ${channel.parent.name}! ...Cree`);
                             setTimeout(() =>
-                                this[actionData.action](...JSON.parse(actionData.data)),
+                                this[actionData.action](...actionData.data),
                                 timeLeft,
                             );
                             break;
 
                         case "interval":
-                            if (duration < 0)
-                                return;
+                            if (duration <= 0)
+                                continue;
 
-                            console.log(`🕰 ¡Horacio recordando reminders en ${channel.name}! ...Cree`);
+                            console.log(`🕰 ¡Horacio recordando reminders en ${channel.parent.name}! ...Cree`);
                             if (this.#inrReminder[channel.id])
-                                clearInterval(this.#inrReminder[channel.id])
+                                clearInterval(this.#inrReminder[channel.id]);
                             this.#inrReminder[channel.id] = setInterval(() =>
-                                this[actionData.action](...JSON.parse(actionData.data)),
+                                this[actionData.action](...actionData.data),
                                 duration
                             );
                             break;
@@ -222,8 +226,8 @@ module.exports = class VoiceHoracio {
             .match(/(\d+)\/(\d+), (\d+):?(\d*)h-(\d+):?(\d*)h/)
             .map(Number);
 
-        const startTime = new Date(Date.UTC(year, month - 1, day, startHour, startMinute || 0) + 60 * 60 * 1000); // UTC+1
-        const endTime   = new Date(Date.UTC(year, month - 1, day, endHour, endMinute || 0) + 60 * 60 * 1000); // UTC+1
+        const startTime = new Date(Date.UTC(year, month - 1, day, startHour, startMinute || 0) - 60 * 60 * 1000); // UTC+1
+        const endTime   = new Date(Date.UTC(year, month - 1, day, endHour, endMinute || 0) - 60 * 60 * 1000); // UTC+1
 
         if (endTime <= startTime)
             endTime.setUTCDate(endTime.getUTCDate() + 1);
@@ -232,8 +236,8 @@ module.exports = class VoiceHoracio {
 
         await this.#guild.scheduledEvents.edit(eventID, {
             name: `#${sessionNum} Session`,
-            scheduledStartTime: startTime.getTime(),
-            scheduledEndTime: endTime.getTime()
+            scheduledStartTime: startTime,
+            scheduledEndTime: endTime
         });
     }
 
