@@ -43,7 +43,7 @@ module.exports = {
             });
 
             if (response.data.success)
-                return response.data.dataTimelapse;
+                return response.data.dataTimelapse || [{}];
             throw new Error(response.data.error);
         }
         catch (error) {

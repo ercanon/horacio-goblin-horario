@@ -58,7 +58,7 @@ module.exports = class VoiceHoracio {
                 type: "interval",
                 actionData: {
                     action: "replyPinned",
-                    data: JSON.stringify(["emptySchedule", channelID])
+                    data: ["emptySchedule", channelID]
                 }
             });
 
@@ -113,7 +113,7 @@ module.exports = class VoiceHoracio {
                             type: "timeout",
                             actionData: {
                                 action: "checkDayWinner",
-                                data: JSON.stringify([channel.id, msgResult, sessionNum])
+                                data: [channel.id, msgResult, sessionNum]
                             }
                         });
                     }
@@ -148,31 +148,30 @@ module.exports = class VoiceHoracio {
                 channel.type === ChannelType.GuildAnnouncement &&
                 channel.permissionsFor(botRole)?.has(PermissionFlagsBits.SendMessages, false))
             .forEach(async (channel) => {
-                const timelapseList = await retrieveTimelapse(channel.id) || [{}];
-                console.log(timelapseList)//TODO
+                const timelapseList = await retrieveTimelapse(channel.id);
                 for (const { type, timeStart, duration, actionData } of timelapseList) {
                     switch (type) {
                         case "timeout":
-                            const timeLeft = duration - Date.now() - timeStart;
-                            if (timeLeft < 0)
-                                return;
+                            const timeLeft = (timeStart + duration) - Date.now();
+                            if (timeLeft <= 0)
+                                continue;
 
-                            console.log(`🕰 ¡Horacio recordando polls en ${channel.name}! ...Cree`);
+                            console.log(`🕰 ¡Horacio recordando polls en ${channel.parent.name}! ...Cree`);
                             setTimeout(() =>
-                                this[actionData.action](...JSON.parse(actionData.data)),
+                                this[actionData.action](...(actionData.data)),
                                 timeLeft,
                             );
                             break;
 
                         case "interval":
-                            if (duration < 0)
-                                return;
+                            if (duration <= 0)
+                                continue;
 
-                            console.log(`🕰 ¡Horacio recordando reminders en ${channel.name}! ...Cree`);
+                            console.log(`🕰 ¡Horacio recordando reminders en ${channel.parent.name}! ...Cree`);
                             if (this.#inrReminder[channel.id])
                                 clearInterval(this.#inrReminder[channel.id])
                             this.#inrReminder[channel.id] = setInterval(() =>
-                                this[actionData.action](...JSON.parse(actionData.data)),
+                                this[actionData.action](...(actionData.data)),
                                 duration
                             );
                             break;
@@ -222,8 +221,8 @@ module.exports = class VoiceHoracio {
             .match(/(\d+)\/(\d+), (\d+):?(\d*)h-(\d+):?(\d*)h/)
             .map(Number);
 
-        const startTime = new Date(Date.UTC(year, month - 1, day, startHour, startMinute || 0) + 60 * 60 * 1000); // UTC+1
-        const endTime   = new Date(Date.UTC(year, month - 1, day, endHour, endMinute || 0) + 60 * 60 * 1000); // UTC+1
+        const startTime = new Date(Date.UTC(year, month - 1, day, startHour, startMinute || 0) - 60 * 60 * 1000); // UTC+1
+        const endTime   = new Date(Date.UTC(year, month - 1, day, endHour, endMinute || 0) - 60 * 60 * 1000); // UTC+1
 
         if (endTime <= startTime)
             endTime.setUTCDate(endTime.getUTCDate() + 1);
@@ -232,8 +231,8 @@ module.exports = class VoiceHoracio {
 
         await this.#guild.scheduledEvents.edit(eventID, {
             name: `#${sessionNum} Session`,
-            scheduledStartTime: startTime.getTime(),
-            scheduledEndTime: endTime.getTime()
+            scheduledStartTime: startTime,
+            scheduledEndTime: endTime
         });
     }
 
