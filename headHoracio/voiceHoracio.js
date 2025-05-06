@@ -1,28 +1,13 @@
 const { ChannelType, PermissionFlagsBits } = require("discord.js");
 const { storeTimelapse, retrieveTimelapse } = require("./eyesHoracio.js");
 const msgHoracio = require("./phrasesHoracio.json");
-const express = require("express");
 
 module.exports = class VoiceHoracio {
     #guild = null;
     #inrReminder = {};
-    constructor(guild) {
+    constructor(guild, app) {
         this.#guild = guild;
         const botRole = guild.members.me.roles.highest;
-        const app = express();
-
-        app.use(express.json());
-        const tryPort = (port) => {
-            app.listen(port, () => {
-                console.log(`🌍 ¡Horacio ahora atrapa datos para ${guild.name}! Horacio atento en el puerto ${port}.`);
-            }).on("error", (error) => {
-                if (error.code === "EADDRINUSE")
-                    tryPort(port + 1);
-                else
-                    console.error(`❌ Error atrapando datos para ${guild.name}.`, error);
-            });
-        };
-        tryPort(3000);
 
         app.post("/awake", (req, res) => {
             console.log("📡 ¡Horacio despierto, ojos abiertos, cerebro… casi!");
@@ -226,8 +211,8 @@ module.exports = class VoiceHoracio {
             .match(/(\d+)\/(\d+), (\d+):?(\d*)h-(\d+):?(\d*)h/)
             .map(Number);
 
-        const startTime = new Date(Date.UTC(year, month - 1, day, startHour, startMinute || 0) - 60 * 60 * 1000); // UTC+1
-        const endTime   = new Date(Date.UTC(year, month - 1, day, endHour, endMinute || 0) - 60 * 60 * 1000); // UTC+1
+        const startTime = new Date(Date.UTC(year, month - 1, day, startHour, startMinute || 0) + 60 * 60 * 1000); // UTC+1
+        const endTime   = new Date(Date.UTC(year, month - 1, day, endHour, endMinute || 0) + 60 * 60 * 1000); // UTC+1
 
         if (endTime <= startTime)
             endTime.setUTCDate(endTime.getUTCDate() + 1);

@@ -7,6 +7,7 @@ const {
     MessageFlags
 } = require("discord.js");
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
+const express = require("express");
 
 /*>--------------- { Commands } ---------------<*/
 client.commands = new Collection();
@@ -62,8 +63,16 @@ client.on("guildCreate", (guild) =>
 
 /*>--------------- { Bot Initialization } ---------------<*/
 client.once("ready", () => {
+    const app = express();
+    app.use(express.json());
+
+    app.listen(3000, () => {
+        console.log(`🌍 ¡Horacio ahora atrapa datos! Horacio atento en el puerto 3000.`);
+    }).on("error", (error) => 
+            console.error(`❌ Error atrapando datos.`, error));
+
     client.guilds.cache.forEach((guild) =>
-        new VoiceHoracio(guild));
+        new VoiceHoracio(guild, app));
     console.log(`✅ Horacio está, ¡sí sí! ¡Conectado, todo listo!`);
 });
 
