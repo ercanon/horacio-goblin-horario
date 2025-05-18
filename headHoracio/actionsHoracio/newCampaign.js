@@ -33,7 +33,7 @@ module.exports = {
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         const name = interaction.options.getString("name");
         const color = interaction.options.getString("color") || "#0099FF";
-        const channelInteract = interaction.guild.channels;
+        const guild = interaction.guild.channels;
         const botRole = interaction.guild.members.me.roles.highest;
 
         try {
@@ -43,7 +43,7 @@ module.exports = {
                     flags: [MessageFlags.Ephemeral],
                 });
             }
-            if (channelInteract.cache.find((category) =>
+            if (guild.cache.find((category) =>
                 category.type === ChannelType.GuildCategory && category.name.toLowerCase() === name.toLowerCase())) {
                 return await interaction.editReply({
                     content: `⚠️ ¡No hacer lío! ${name} ya está ahí, no repetir.`,
@@ -59,7 +59,7 @@ module.exports = {
                 });
             console.log("📝 ¡Eh! Rol asignado, ahora eres alguien… ¡o algo!")
 
-            const category = await channelInteract.create({
+            const category = await guild.create({
                 name,
                 type: ChannelType.GuildCategory,
                 permissionOverwrites: [
@@ -143,7 +143,7 @@ module.exports = {
             ];
 
             for (const channelData of channelList) {
-                const channel = await channelInteract.create({
+                const channel = await guild.create({
                     name: channelData.name,
                     type: channelData.type,
                     parent: category.id,

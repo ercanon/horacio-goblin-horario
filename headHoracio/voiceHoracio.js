@@ -1,5 +1,6 @@
 const { ChannelType, PermissionFlagsBits } = require("discord.js");
 const { storeTimelapse, retrieveTimelapse } = require("./eyesHoracio.js");
+const { msgPattern, execute } = require("./actionsHoracio/clearReminders");
 const msgHoracio = require("./phrasesHoracio.json");
 
 module.exports = class VoiceHoracio {
@@ -116,20 +117,16 @@ module.exports = class VoiceHoracio {
             return res.status(400).send("¡Horacio no notificó sesión! Faltan ingredientes.");
         });
 
-        const msgPattern = /^<@!?&?\d+> #\d+ Session: .+$/;
         guild.client.on("messageCreate", async (message) => {
-            if (message.guild.id !== guild.id &&
-                message.channel.permissionsFor(botRole)?.has(PermissionFlagsBits.SendMessages, false) &&
+            if (message.guild.id === guild.id &&
                 msgPattern.test(message.content)) {
-                const lastMsgs = message.channel.messages.fetch({ limit: 26 })
-                lastMsgs.forEach(async (msg) => {
-                    if (!msgPattern.test(msg.content) && !msg.pinned && msg.deletable) {
-                        await msg.delete().catch((error) =>
-                            console.error("❌ ¡Bah! Mensaje terco, no se deja borrar. ¿Magia oscura?", error));
-                    }
-                });
+                execute({
+                    channel: message.channel,
+                    options: { getInteger: () => 26 },
+                    botRole,
+                    editReply(info) { console.log(info.content) },
 
-                console.warn("⚠️ ¡Puf! Mensajes desaparecidos, como magia (o garra de Horacio).");
+                });
             }
         });
 
