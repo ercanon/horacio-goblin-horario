@@ -8,7 +8,8 @@ module.exports = class VoiceHoracio {
     #inrReminder = {};
     constructor(guild, app) {
         this.#guild = guild;
-        const botRole = guild.members.me.roles.highest;
+        const botRole = guild.roles.cache.find((role) =>
+            role.tags?.botId);
 
         app.post("/awake", (req, res) => {
             console.log("📡 ¡Horacio despierto, ojos abiertos, cerebro… casi!");
@@ -26,9 +27,7 @@ module.exports = class VoiceHoracio {
                     type: "interval"
                 });
 
-                channel.send({
-                    content: `${role} ${msgHoracio["unableSession"][Math.floor(Math.random() * msgHoracio["unableSession"].length)]}`,
-                });
+                channel.send(`${role} ${msgHoracio["unableSession"][Math.floor(Math.random() * msgHoracio["unableSession"].length)]}`);
                 return res.status(200).send("¡Horacio triste! No haber session.");
             }
             return res.status(400).send("¡Horacio confuso! ¿Session? Faltan ingredientes.");
