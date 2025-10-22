@@ -26,7 +26,7 @@ module.exports = {
         ).addAttachmentOption(option =>
             option
                 .setName("image")
-                .setDescription("Scheduled Event banner image")
+                .setDescription("Scheduled Event banner image (min. 800x320px)")
                 .setRequired(false)
         ),
     async execute(interaction) {
