@@ -24,7 +24,8 @@ module.exports = class VoiceHoracio {
                 await storeTimelapse({
                     channelID: channel.id,
                     duration: 0,
-                    type: "interval"
+                    type: "",
+                    actionData: {}
                 });
 
                 channel.send(`${role} ${msgHoracio["unableSession"][Math.floor(Math.random() * msgHoracio["unableSession"].length)]}`);
@@ -38,10 +39,6 @@ module.exports = class VoiceHoracio {
             this.replyPinned("emptySchedule", channelID);
 
             const duration = 2 * 24 * 60 * 60 * 1000;
-            this.#inrReminder[channelID] = setInterval(() =>
-                this.replyPinned("remindSchedule", channelID),
-                duration
-            );
             await storeTimelapse({
                 channelID,
                 duration,
@@ -51,6 +48,10 @@ module.exports = class VoiceHoracio {
                     data: ["remindSchedule", channelID]
                 }
             });
+            this.#inrReminder[channel.id] = setInterval(async () =>
+                await this.intervalHdl(channel.id, actionData),
+                duration
+            );
 
             return res.status(200).send("¡Horacio avisó para horario!");
         });
@@ -60,11 +61,6 @@ module.exports = class VoiceHoracio {
             if (channel) {
                 if (this.#inrReminder[channel.id])
                     clearInterval(this.#inrReminder[channel.id]);
-                await storeTimelapse({
-                    channelID: channel.id,
-                    duration: 0,
-                    type: "interval"
-                });
 
                 const { dispDates, sessionNum } = req.body;
                 const msMinSession = req.body.msMinSession - Date.now();
@@ -136,12 +132,9 @@ module.exports = class VoiceHoracio {
             .forEach(async (channel) => {
                 const timelapseList = await retrieveTimelapse(channel.id);
                 for (const { type, timeStart, duration, actionData } of timelapseList) {
+                    const timeLeft = (timeStart + duration) - Date.now();
                     switch (type) {
                         case "timeout":
-                            const timeLeft = (timeStart + duration) - Date.now();
-                            if (timeLeft <= 0)
-                                continue;
-
                             console.log(`🕰 ¡Horacio recordando polls en ${channel.parent?.name ?? channel.name}! ...Cree`);
                             setTimeout(() =>
                                 this[actionData.action](...actionData.data),
@@ -150,14 +143,14 @@ module.exports = class VoiceHoracio {
                             break;
 
                         case "interval":
-                            if (duration <= 0)
-                                continue;
+                            if (timeLeft <= 0)
+                                this[actionData.action](...actionData.data);
 
                             console.log(`🕰 ¡Horacio recordando reminders en ${channel.parent?.name ?? channel.name}! ...Cree`);
                             if (this.#inrReminder[channel.id])
                                 clearInterval(this.#inrReminder[channel.id]);
-                            this.#inrReminder[channel.id] = setInterval(() =>
-                                this[actionData.action](...actionData.data),
+                            this.#inrReminder[channel.id] = setInterval(async () =>
+                                await this.intervalHdl(channel.id, actionData),
                                 duration
                             );
                             break;
@@ -214,6 +207,12 @@ module.exports = class VoiceHoracio {
             endTime.setUTCDate(endTime.getUTCDate() + 1);
 
         console.log(`UTC: ${startTime.toISOString()}h - ${endTime.toISOString()}h\nLocal: ${startTime.toString()}h - ${endTime.toString()}h`);
+        await storeTimelapse({
+            channelID: channel.id,
+            duration: 0,
+            type: "",
+            actionData: {}
+        });
 
         await this.#guild.scheduledEvents.edit(eventID, {
             name: `#${sessionNum} Session`,
@@ -241,5 +240,10 @@ module.exports = class VoiceHoracio {
             console.error("❌ ¡Canal desaparecido! ¿Lo robó un elfo o algo?", error);
             return [];
         }
-    }   
+    } 
+
+    async intervalHdl(channelID, { action, data }) {
+        this[action](...data)
+        await storeTimelapse({ channelID });
+    }
 };
