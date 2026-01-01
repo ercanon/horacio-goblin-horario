@@ -39,14 +39,15 @@ module.exports = class VoiceHoracio {
             this.replyPinned("emptySchedule", channelID);
 
             const duration = 2 * 24 * 60 * 60 * 1000;
+            const actionData = {
+                action: "replyPinned",
+                    data: ["remindSchedule", channelID]
+            }
             await storeTimelapse({
                 channelID,
                 duration,
                 type: "interval",
-                actionData: {
-                    action: "replyPinned",
-                    data: ["remindSchedule", channelID]
-                }
+                actionData
             });
             this.#inrReminder[channelID] = setInterval(async () =>
                 await this.intervalHdl(channelID, actionData),
@@ -62,26 +63,25 @@ module.exports = class VoiceHoracio {
                 if (this.#inrReminder[channel.id])
                     clearInterval(this.#inrReminder[channel.id]);
 
-                const { dispDates, sessionNum } = req.body;
-                const msMinSession = req.body.msMinSession - Date.now();
+                const { availDates, sessionNum, msMinSession } = req.body;
                 const msgResult = `${role} #${sessionNum} Session: `;
 
-                if (dispDates.length === 1) {
-                    channel.send(msgResult + dispDates[0]);
-                    this.editEvent(dispDates[0], sessionNum, channel);
+                if (availDates.length === 1) {
+                    channel.send(msgResult + availDates[0]);
+                    this.editEvent(availDates[0], sessionNum, channel);
                 }
-                else if (dispDates.length > 1) {
+                else if (availDates.length > 1) {
                     try {
                         const duration = Math.min(
-                            6 * 24 * 60 * 60 * 1000,
-                            msMinSession
+                            5 * 24 * 60 * 60 * 1000,
+                            msMinSession - Date.now()
                         );
 
                         await channel.send({
                             content: `${role}`,
                             poll: {
                                 question: { text: msgHoracio.pollQuestion[Math.floor(Math.random() * msgHoracio.pollQuestion.length)] },
-                                answers: dispDates.map((date) =>
+                                answers: availDates.map((date) =>
                                     ({ text: date })),
                                 allowMultiselect: true,
                                 duration: duration / (60 * 60 * 1000)
@@ -202,8 +202,8 @@ module.exports = class VoiceHoracio {
             .match(/(\d+)\/(\d+), (\d+):?(\d*)h-(\d+):?(\d*)h/)
             .map(Number);
 
-        const startTime = new Date(year, month - 1, day, startHour - 2, startMinute || 0);
-        const endTime = new Date(year, month - 1, day, endHour - 2, endMinute || 0);
+        const startTime = new Date(year, month - 1, day, startHour - 1, startMinute || 0);
+        const endTime = new Date(year, month - 1, day, endHour - 1, endMinute || 0);
 
         if (endTime <= startTime)
             endTime.setUTCDate(endTime.getUTCDate() + 1);
