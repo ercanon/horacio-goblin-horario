@@ -5,8 +5,7 @@
     ModalBuilder,
     TextInputBuilder,
     TextInputStyle,
-    ActionRowBuilder,
-    MessageFlags
+    ActionRowBuilder
 } = require("discord.js");
 
 module.exports = {
