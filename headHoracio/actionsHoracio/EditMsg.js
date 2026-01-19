@@ -4,43 +4,36 @@
 } = require("discord.js");
 
 module.exports = {
-    data: new SlashCommandBuilder()
-        .setName("edit_msg")
-        .setDescription("Edita un mensaje por ID")
-        .addStringOption(option =>
-            option
-                .setName("id")
-                .setDescription("Message ID")
-                .setRequired(true)
-        )
-        .addStringOption(option =>
-            option
-                .setName("contents")
-                .setDescription("New message content")
-                .setRequired(true)
-        ),
+    data: new ContextMenuCommandBuilder()
+        .setName("Edit Horacio msg.")
+        .setType(ApplicationCommandType.Message),
 
     async execute(interaction) {
-        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const message = interaction.targetMessage;
 
-        const messageId = interaction.options.getString("id");
-        const newContent = interaction.options.getString("contenido");
-        try {
-            const message = await interaction.channel.messages.fetch(messageId);
-
-            await message.edit({ content: newContent });
-
-            await interaction.editReply({
-                content: "✅ Mensaje editado correctamente.",
-                flags: [MessageFlags.Ephemeral],
-            });
-
-        } catch (error) {
-            console.error(error);
-            await interaction.editReply({
-                content: "❌ No pude encontrar o editar ese mensaje.",
-                flags: [MessageFlags.Ephemeral],
+        if (message.author.id !== interaction.client.user.id) {
+            return interaction.reply({
+                content: "❌ Este mensaje no es mío.",
+                flags: [MessageFlags.Ephemeral]
             });
         }
+
+        const modal = new ModalBuilder()
+            .setCustomId(`edit_${message.id}`)
+            .setTitle("Editar mensaje");
+
+        const input = new TextInputBuilder()
+            .setCustomId("content")
+            .setLabel("Nuevo contenido")
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true)
+            .setValue(message.content || "");
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(input)
+        );
+
+        await interaction.showModal(modal);
+>>>>>>> Stashed changes
     }
 };

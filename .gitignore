@@ -1,4 +1,3 @@
-*/.vs/
 # Logs
 logs
 *.log
@@ -122,6 +121,7 @@ dist
 
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
+*.vs/
 
 # yarn v2
 .yarn/cache
