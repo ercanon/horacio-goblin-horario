@@ -34,6 +34,5 @@ module.exports = {
         );
 
         await interaction.showModal(modal);
->>>>>>> Stashed changes
     }
 };
