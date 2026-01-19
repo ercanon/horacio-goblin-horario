@@ -1,5 +1,11 @@
 ﻿const {
-    SlashCommandBuilder,
+    ContextMenuCommandBuilder,
+    ApplicationCommandType,
+    MessageFlags,
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle,
+    ActionRowBuilder,
     MessageFlags
 } = require("discord.js");
 
@@ -34,6 +40,5 @@ module.exports = {
         );
 
         await interaction.showModal(modal);
->>>>>>> Stashed changes
     }
 };
