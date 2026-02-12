@@ -24,36 +24,39 @@ function checkSheets() {
         if (excludedSheetIds.includes(sheet.getSheetId()))
             continue;
 
-        /*>---------- [ Set Variables ] ----------<*/
         const nameSheet = sheet.getName();
-        const rowSize = sheet.getMaxRows();
+        let sheetState = parseInt(scriptProps.getProperty(`${nameSheet}_state`));
+        if (sheetState !== 0) {
+            /*>---------- [ Set Variables ] ----------<*/
+            const rowSize = sheet.getMaxRows();
+            const innerData = sheet.getRange(`B1:W${rowSize - 1}`);
+            const [sessionNum, channelID, emptySchedule, ansPlayers] = (() => {
+                const lastCol = innerData.offset(0, innerData.getNumColumns() - 1, rowSize - 1, 1).getValues(); //Last Column
+                return [lastCol[0][0], lastCol[1][0], lastCol[2][0], lastCol[rowSize - 2][0]]
+            })();
 
-        const innerData = sheet.getRange(`B1:W${rowSize - 1}`);
-        const [sessionNum, channelID, emptySchedule, ansPlayers] = (() => {
-            const lastCol = innerData.offset(0, innerData.getNumColumns() - 1, rowSize - 1, 1).getValues(); //Last Column
-            return [lastCol[0][0], lastCol[1][0], lastCol[2][0], lastCol[rowSize - 2][0]]
-        })();
+            /*>---------- [ PRE: Check Empty Schedule ] ----------<*/
+            if (emptySchedule) {
+                sheetState = 0;
+                innerData.getCell(3, 22).setValue(""); //emptySchedule
 
-        /*>---------- [ PRE: Check Empty Schedule ] ----------<*/
-        if (emptySchedule) {
+                const datesData = innerData.offset(0, 0, 1, innerData.getNumColumns() - 1).getDisplayValues().flat(); //First Row
+                const dateStrings = datesData.map((_, i) =>
+                    `${capFirstLtr(datesData[i - i % 3])}, ${times[i % 3]}`);
+                scriptProps.setProperty(`${nameSheet}_dates`, JSON.stringify(dateStrings));
+
+                innerData.getCell(1, 22).setValue((parseInt(sessionNum) || 0) + 1); //sessionNum
+                updateRequest("emptySchedule", { channelID });
+            }
+
+            /*>---------- [ INTER: Check Session Ready ] ----------<*/
+            if (Number.isNaN(sheetState))
+                continue;
             scriptProps.setProperty(`${nameSheet}_state`, 0);
-            innerData.getCell(3, 22).setValue(""); //emptySchedule
 
-            const datesData = innerData.offset(0, 0, 1, innerData.getNumColumns() - 1).getDisplayValues().flat(); //First Row
-            const dateStrings = datesData.map((_, i) =>
-                `${capFirstLtr(datesData[i - i % 3])}, ${times[i % 3]}`);
-            scriptProps.setProperty(`${nameSheet}_dates`, JSON.stringify(dateStrings));
-
-            innerData.getCell(1, 22).setValue((parseInt(sessionNum) || 0) + 1); //sessionNum
-            updateRequest("emptySchedule", { channelID });
-            continue;
-        }
-
-        /*>---------- [ INTER: Check Session Ready ] ----------<*/
-        const sheetState = parseInt(scriptProps.getProperty(`${nameSheet}_state`));
-        const numPlayers = rowSize - 5; //rowSize, -3 topMargin, -2 bottomMargin
-        if (sheetState === 1 &&
-            ansPlayers > numPlayers - Math.ceil(Math.max(numPlayers - 4, 0) / 2)) {
+            const numPlayers = rowSize - 5; //rowSize, -3 topMargin, -2 bottomMargin
+            if (ansPlayers < numPlayers - Math.ceil(Math.max(numPlayers - 4, 0) / 2))
+                continue
             Logger.log(`Hoja ${nameSheet} tocada, ¡Horacio valida lío de datos ahora!`);
             scriptProps.setProperty(`${nameSheet}_state`, 0);
 

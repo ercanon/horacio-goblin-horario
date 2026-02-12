@@ -18,16 +18,18 @@ function doPost(e) {
                 newSheet.showSheet();
 
                 for (const prot of templateSheet.getProtections(SpreadsheetApp.ProtectionType.RANGE)) {
-                    const copyProt = newSheet.protect()
+                    const range = prot.getRange();
+                    const newRange = newSheet.getRange(range.getA1Notation());
+
+                    const copyProt = newRange.protect()
                         .setDescription(prot.getDescription());
 
-                    if (prot.canDomainEdit()) 
-                        copyProt.setDomainEdit(true);
-                    else {
-                        copyProt.setDomainEdit(false);
-                        copyProt.addEditors(prot.getEditors());
-                    }
-                };
+                    //copyProt.setDomainEdit(false);
+
+                    const editors = prot.getEditors();
+                    if (editors.length > 0)
+                        copyProt.addEditors(editors);
+                }
 
                 return ContentService.createTextOutput(JSON.stringify({
                     success: true,

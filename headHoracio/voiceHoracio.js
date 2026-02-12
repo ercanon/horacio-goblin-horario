@@ -35,8 +35,8 @@ module.exports = class VoiceHoracio {
         });
 
         app.post("/emptySchedule", async (req, res) => {
-            const { channelID } = req.body;
-            this.replyPinned("emptySchedule", channelID);
+            const { channelID, initDate } = req.body;
+            this.replyPinned("emptySchedule", channelID, `Semana del ${initDate}.\n`);
 
             const duration = 2 * 24 * 60 * 60 * 1000;
             const actionData = {
@@ -161,12 +161,12 @@ module.exports = class VoiceHoracio {
             });
     }
 
-    async replyPinned(phraseType, channelID) {
+    async replyPinned(phraseType, channelID, extraMsg = "") {
         const [channel, role] = await this.getRoleChannel({ channelID });
         if (channel) {
             const pinnedMsg = await channel.messages.fetchPinned();
             channel.send({
-                content: `${role} ${msgHoracio[phraseType][Math.floor(Math.random() * msgHoracio[phraseType].length)]}`,
+                content: `${role} ${extraMsg}${msgHoracio[phraseType][Math.floor(Math.random() * msgHoracio[phraseType].length)]}`,
                 reply: {
                     messageReference: pinnedMsg?.last().id,
                     failIfNotExists: false
