@@ -1,9 +1,9 @@
-const { ChannelType, PermissionFlagsBits } = require("discord.js");
-const { storeTimelapse, retrieveTimelapse } = require("./eyesHoracio.js");
-const { msgPattern, execute } = require("./actionsHoracio/clearReminders");
-const msgHoracio = require("./phrasesHoracio.json");
+import { ChannelType, PermissionFlagsBits } from "discord.js";
+import { storeTimelapse, retrieveTimelapse } from "./eyesHoracio.js";
+import { msgPattern, execute } from "./actionsHoracio/clearReminders.js";
+import msgHoracio from "./phrasesHoracio.json" with { type: 'json' };;
 
-module.exports = class VoiceHoracio {
+export default class VoiceHoracio {
     #guild = null;
     #inrReminder = {};
     constructor(guild, app) {
