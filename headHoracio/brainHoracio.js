@@ -9,6 +9,15 @@ const {
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 const express = require("express");
 
+const app = express();
+app.use(express.json());
+
+const port = process.env.PORT || 10000;
+app.listen(port, () => {
+    console.log(`🌍 ¡Horacio ahora atrapa datos! Horacio atento en el puerto ${port}.`);
+}).on("error", (error) =>
+    console.error(`❌ Error atrapando datos.`, error));
+
 /*>--------------- { Commands } ---------------<*/
 client.commands = new Collection();
 const commandFiles = require("fs")
@@ -63,14 +72,6 @@ client.on("guildCreate", (guild) =>
 
 /*>--------------- { Bot Initialization } ---------------<*/
 client.once("ready", () => {
-    const app = express();
-    app.use(express.json());
-
-    app.listen(3000, () => {
-        console.log(`🌍 ¡Horacio ahora atrapa datos! Horacio atento en el puerto 3000.`);
-    }).on("error", (error) => 
-            console.error(`❌ Error atrapando datos.`, error));
-
     client.guilds.cache.forEach((guild) =>
         new VoiceHoracio(guild, app));
     console.log(`✅ Horacio está, ¡sí sí! ¡Conectado, todo listo!`);
