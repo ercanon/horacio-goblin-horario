@@ -1,0 +1,43 @@
+﻿const {
+    ContextMenuCommandBuilder,
+    ApplicationCommandType,
+    MessageFlags,
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle,
+    ActionRowBuilder
+} = require("discord.js");
+
+module.exports = {
+    data: new ContextMenuCommandBuilder()
+        .setName("edit_msg")  //Does not admit Caps
+        .setType(ApplicationCommandType.Message),
+
+    async execute(interaction) {
+        const message = interaction.targetMessage;
+
+        if (message.author.id !== interaction.client.user.id) {
+            return interaction.reply({
+                content: "❌ Este mensaje no es mío.",
+                flags: [MessageFlags.Ephemeral]
+            });
+        }
+
+        const modal = new ModalBuilder()
+            .setCustomId(`edit_${message.id}`)
+            .setTitle("Editar mensaje");
+
+        const input = new TextInputBuilder()
+            .setCustomId("content")
+            .setLabel("Nuevo contenido")
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true)
+            .setValue(message.content || "");
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(input)
+        );
+
+        await interaction.showModal(modal);
+    }
+};

@@ -1,9 +1,9 @@
-import { ChannelType, PermissionFlagsBits } from "discord.js";
-import { storeTimelapse, retrieveTimelapse } from "./eyesHoracio.js";
-import { msgPattern, execute } from "./actionsHoracio/clearReminders.js";
-import msgHoracio from "./phrasesHoracio.json" with { type: 'json' };;
+const { ChannelType, PermissionFlagsBits } = require("discord.js");
+const { storeTimelapse, retrieveTimelapse } = require("./eyesHoracio.js");
+const { msgPattern, execute } = require("./actionsHoracio/clearReminders");
+const msgHoracio = require("./phrasesHoracio.json");
 
-export default class VoiceHoracio {
+module.exports = class VoiceHoracio {
     #guild = null;
     #inrReminder = {};
     constructor(guild, app) {
@@ -164,11 +164,12 @@ export default class VoiceHoracio {
     async replyPinned(phraseType, channelID, extraMsg = "") {
         const [channel, role] = await this.getRoleChannel({ channelID });
         if (channel) {
-            const pinnedMsg = await channel.messages.fetchPinned();
+            const pinnedData = await channel.messages.fetchPins();
+
             channel.send({
                 content: `${role} ${extraMsg}${msgHoracio[phraseType][Math.floor(Math.random() * msgHoracio[phraseType].length)]}`,
                 reply: {
-                    messageReference: pinnedMsg?.last().id,
+                    messageReference: pinnedData.items?.at(-1).message.id,
                     failIfNotExists: false
                 }
             });

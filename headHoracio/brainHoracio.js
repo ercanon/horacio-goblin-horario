@@ -1,58 +1,42 @@
-import {
+const {
     Client,
     GatewayIntentBits,
     Collection,
     REST,
     Routes,
     MessageFlags
-} from "discord.js";
+} = require("discord.js");
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
-import express from "express";
 
-const app = express();
-app.use(express.json());
-
-const port = process.env.PORT || 10000;
-app.listen(port, () => {
-    console.log(`🌍 ¡Horacio ahora atrapa datos! Horacio atento en el puerto ${port}.`);
-}).on("error", (error) =>
-    console.error(`❌ Error atrapando datos.`, error));
-
-client.login(process.env.TOKEN).catch((error) => 
-    console.error(` ❌ Horacio no puede entrar a Discord. Revisa mi TOKEN.`, error));
+const https = require('https');
+https.get('https://discord.com/api/v10/gateway', (res) => {
+    console.log(`📡 Conexión con API Discord: ${res.statusCode}`);
+}).on('error', (e) => {
+    console.error(`❌ ¡HORACIO ESTÁ CIEGO! No llega a Discord: ${e.message}`);
+});
 
 /*>--------------- { Commands } ---------------<*/
 client.commands = new Collection();
-import fs from "fs";
-const commandFiles = fs.readdirSync("./headHoracio/actionsHoracio")
+const commandFiles = require("fs")
+    .readdirSync("./headHoracio/actionsHoracio")
     .filter((file) => file.endsWith(".js"));
 
 const body = [];
+for (const file of commandFiles) {
+    const cmd = require(`./actionsHoracio/${file}`);
+    client.commands.set(cmd.data.name, cmd);
+    body.push(cmd.data.toJSON());
+}
+
 (async () => {
-    for (const file of commandFiles) {
-        const cmdModule = await import(`./actionsHoracio/${file}`);
-        const cmd = cmdModule.default || cmdModule;
-        client.commands.set(cmd.data.name, cmd);
-        body.push(cmd.data.toJSON());
-    }
-
     try {
-        const cleanBody = body.map(cmd => {
-            if (typeof cmd.toJSON === 'function') {
-                return cmd.toJSON();
-            }
-            return cmd;
-        });
-
-        console.log("body:", cleanBody);
         const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
-        console.log("rest:", rest);
         await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body });
         console.log("📤 ¡Horacio pone comandos, sí sí! Slash, slash, mucho orden, no explotar.");
     }
     catch (error) {
         console.error("❌ ¡Agh! Comandos pelean con Horacio. No quieren registrarse. Magia mala, muy mala.", error);
-    };
+    }
 })();
 
 client.on("interactionCreate", async (interaction) => {
@@ -78,13 +62,25 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 /*>--------------- { Guilds } ---------------<*/
-import VoiceHoracio from "./voiceHoracio.js";
+const VoiceHoracio = require("./voiceHoracio.js");
 client.on("guildCreate", (guild) =>
     new VoiceHoracio(guild));
 
 /*>--------------- { Bot Initialization } ---------------<*/
-client.once("ready", async () => {
+client.once("clientReady", () => {
+    const express = require("express");
+    const app = express();
+    app.use(express.json());
+
+    const port = process.env.PORT || 4000;
+    app.listen(port, () => {
+        console.log(`🌍 ¡Horacio ahora atrapa datos! Horacio atento en el puerto ${port}.`);
+    }).on("error", (error) =>
+        console.error(`❌ Error atrapando datos.`, error));
+
     client.guilds.cache.forEach((guild) =>
         new VoiceHoracio(guild, app));
     console.log(`✅ Horacio está, ¡sí sí! ¡Conectado, todo listo!`);
 });
+
+client.login(process.env.TOKEN);
