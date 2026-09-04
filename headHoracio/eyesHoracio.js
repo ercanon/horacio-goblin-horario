@@ -1,4 +1,5 @@
 ﻿const axios = require("axios");
+const MAX_REDIRECTS = 5;
 
 module.exports = {
     async setSchedule(sheetName, tabColor, channelID) {
@@ -8,6 +9,8 @@ module.exports = {
                 channelID,
                 sheetName,
                 tabColor
+            }, {
+                maxRedirects: MAX_REDIRECTS
             });
     
             if (response.data.success)
@@ -25,6 +28,8 @@ module.exports = {
                 postType: "storeTimelapse",
                 timeStart: Date.now(),
                 ...data
+            }, {
+                maxRedirects: MAX_REDIRECTS
             });
 
             if (!response.data.success)
@@ -40,6 +45,8 @@ module.exports = {
             const response = await axios.post(process.env.GAS_URL, {
                 postType: "retrieveTimelapse",
                 channelID
+            }, {
+                maxRedirects: MAX_REDIRECTS
             });
 
             if (response.data.success)
